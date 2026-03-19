@@ -1,0 +1,32 @@
+{
+  "name": "@caffeine/template-app",
+  "type": "module",
+  "engines": {
+    "node": ">=16.0.0",
+    "pnpm": ">=7.0.0",
+    "npm": "please use pnpm"
+  },
+  "scripts": {
+    "build": "pnpm -r --if-present run build",
+    "prebuild": "pnpm -r --if-present run prebuild",
+    "pretest": "pnpm -r --if-present run prebuild",
+    "start": "pnpm -r --if-present run start",
+    "test": "pnpm -r --if-present run test",
+    "dev": "concurrently \"pnpm --filter frontend start\" \"pnpm --filter backend dev\""
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.3.5",
+    "concurrently": "^9.2.1",
+    "sharp": "^0.34.4",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "google-auth-library": "^10.6.1",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

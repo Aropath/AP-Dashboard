@@ -1,0 +1,89 @@
+/* Auth page background */
+.auth-bg {
+  background: linear-gradient(
+    135deg,
+    oklch(0.96 0.025 195) 0%,
+    oklch(0.98 0.015 205) 40%,
+    oklch(0.975 0.02 215) 100%
+  );
+  min-height: 100vh;
+}
+
+.aqua-gradient {
+  background: linear-gradient(135deg, oklch(0.72 0.14 195), oklch(0.6 0.16 205));
+}
+
+/* Card */
+.auth-card {
+  background: white;
+  border: 1px solid #e6eef0;
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.08),
+    0 8px 32px rgba(0,0,0,0.1),
+    0 2px 8px rgba(0,0,0,0.06);
+}
+
+/* Inputs */
+.field-input {
+  width: 100%;
+  border: 1.5px solid #dce6ea;
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.9375rem;
+  background: #fafcfd;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: #1ea7b6;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(30,167,182,0.15);
+}
+
+.field-input.error {
+  border-color: #e5484d;
+}
+
+/* Button */
+.btn-aqua {
+  background: #1ea7b6;
+  color: white;
+  transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.btn-aqua:hover:not(:disabled) {
+  background: #188e9c;
+  box-shadow: 0 4px 16px rgba(30,167,182,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-aqua:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Links */
+.link-aqua {
+  color: #1ea7b6;
+}
+
+.link-aqua:hover {
+  text-decoration: underline;
+}
+
+/* Animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

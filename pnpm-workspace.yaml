@@ -1,0 +1,5 @@
+packages:
+  - "src/frontend"
+  - "src/backend"
+onlyBuiltDependencies:
+  - esbuild

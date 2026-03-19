@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String?
+  googleId     String?  @unique
+  picture      String?
+  role         Role     @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscription Subscription?
+  clients      Client[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// ─── Refresh Tokens ──────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+// ─── Subscription Plans & Subscriptions ──────────────────────────────────────
+
+model Plan {
+  id            String         @id @default(uuid())
+  name          String         @unique  // "free" | "growth" | "pro" | "enterprise"
+  displayName   String
+  priceMonthly  Float
+  priceYearly   Float
+  features      Json           // array of feature keys this plan unlocks
+  limits        Json           // { maxClients, maxReports, dataRetentionDays, apiCallsPerDay }
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id              String             @id @default(uuid())
+  userId          String             @unique
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId          String
+  plan            Plan               @relation(fields: [planId], references: [id])
+  status          SubscriptionStatus @default(ACTIVE)
+  billingCycle    BillingCycle       @default(MONTHLY)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean         @default(false)
+  trialEndsAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  history         SubscriptionHistory[]
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+  TRIALING
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model SubscriptionHistory {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  action         String       // "created" | "upgraded" | "downgraded" | "cancelled" | "renewed" | "expired"
+  fromPlanId     String?
+  toPlanId       String?
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  @@map("subscription_history")
+}
+
+// ─── Clients ─────────────────────────────────────────────────────────────────
+
+model Client {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  domain      String
+  industry    String?
+  platform    String?  // "shopify" | "woocommerce" | "custom" | etc.
+  trackingId  String   @unique @default(uuid())
+  gaPropertyId String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events      AnalyticsEvent[]
+  sessions    Session[]
+
+  @@map("clients")
+}
+
+// ─── Analytics Events ─────────────────────────────────────────────────────────
+
+model Session {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessionId   String   @unique
+  userId      String?
+  device      String?  // "mobile" | "desktop" | "tablet"
+  browser     String?
+  os          String?
+  country     String?
+  city        String?
+  source      String?  // traffic source
+  medium      String?
+  campaign    String?
+  startedAt   DateTime @default(now())
+  endedAt     DateTime?
+  duration    Int?     // seconds
+  pageViews   Int      @default(0)
+  bounced     Boolean  @default(false)
+  converted   Boolean  @default(false)
+
+  events      AnalyticsEvent[]
+
+  @@index([clientId, startedAt])
+  @@map("sessions")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessionId  String?
+  session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  eventType  String   // "page_view" | "click" | "purchase" | "add_to_cart" | "checkout" | etc.
+  page       String?
+  properties Json?    // flexible event metadata
+  revenue    Float?
+  currency   String?
+  userId     String?
+  occurredAt DateTime @default(now())
+
+  @@index([clientId, eventType, occurredAt])
+  @@map("analytics_events")
+}
