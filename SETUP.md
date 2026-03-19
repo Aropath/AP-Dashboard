@@ -352,3 +352,23 @@ Feature keys (use exactly as listed):
 - `csv_export`, `pdf_export`, `api_access`
 - `cohort_analysis`, `funnel_analysis`
 - `white_label`, `priority_support`, `sso`
+
+``` bash
+# New sequence of commands for setup
+
+# 1
+npm install -g pnpm
+
+# 2
+pnpm install
+
+# 3
+ pnpm add -D concurrently -w
+
+# 4
+pnpm --filter backend exec prisma generate
+
+# 5
+pnpm dev
+
+```

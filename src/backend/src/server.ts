@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { Application } from "express";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import subscriptionRoutes from "./routes/subscriptionRoutes";
@@ -7,7 +7,7 @@ import clientRoutes from "./routes/clientRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import { startSubscriptionCron } from "./services/subscriptionCron";
 
-const app = express();
+const app: Application = express();
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
@@ -55,6 +55,8 @@ app.listen(PORT, () => {
   console.log(`\n🚀 GrowthAdvisor API running on http://localhost:${PORT}`);
   console.log(`   Environment: ${process.env.NODE_ENV || "development"}`);
   console.log(`   Frontend:    ${process.env.FRONTEND_URL || "http://localhost:3000"}\n`);
+  console.log("BACKEND ENV:", process.env.GOOGLE_CLIENT_ID);
+  console.log("BACKEND ENV:", process.env.GOOGLE_CLIENT_SECRET);
   startSubscriptionCron();
 });
 
