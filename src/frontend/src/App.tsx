@@ -28,11 +28,21 @@ import {
   fetchDashboardData, fetchTrafficAnalysis, fetchTopCountries,
   fetchAcquisitionChannels, fetchPagePerformance,
   fetchProductRevenue, fetchCohortRetention,
+  setActiveClient, getActiveClient,
 } from "./services/fetchMetrics";
 import { countryFlags } from "./services/countryFlags";
 
+const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
+
 type Page = "overview" | "analytics" | "insights" | "growth" | "reports" | "settings" | "subscription";
 type DateRange = "today" | "7d" | "30d" | "90d" | "custom";
+
+interface Client {
+  id: string;
+  name: string;
+  domain: string;
+  ga4Credential?: { propertyName: string } | null;
+}
 
 const navItems: { id: Page; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "overview",  label: "Overview",    icon: LayoutDashboard },
@@ -62,6 +72,7 @@ export default function App() {
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // ── Analytics data state ──
   const [trafficAnalysis, setTrafficAnalysis] = useState<any[]>([]);
   const [topCountries, setTopCountries] = useState<any[]>([]);
   const [deviceBreakdown, setDeviceBreakdown] = useState<any[]>([]);
@@ -71,13 +82,51 @@ export default function App() {
   const [revenueByProduct, setProductRevenue] = useState<any[]>([]);
   const [retentionData, setCohortRetention] = useState<any[]>([]);
 
-  // Listen for "navigate-to-subscription" from FeatureGate
+  // ── Client state ──
+  const [clients, setClients] = useState<Client[]>([]);
+  const [activeClientId, setActiveClientIdState] = useState<string>(
+    () => getActiveClient()
+  );
+
+  // ── Load clients on login, auto-select first ──
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    fetch(`${AUTH_API}/clients`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+      },
+    })
+      .then((r) => r.json())
+      .then((data: Client[]) => {
+        if (!data || !Array.isArray(data)) return;
+        setClients(data);
+
+        // Auto-select first client if none already stored
+        if (data.length > 0 && !getActiveClient()) {
+          setActiveClient(data[0].id);
+          setActiveClientIdState(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated]);
+
+  // ── Switch client ──
+  function handleClientChange(clientId: string) {
+    setActiveClient(clientId);
+    setActiveClientIdState(clientId);
+    // Re-fetch all data for the newly selected client
+    refreshAllData(dateRange);
+  }
+
+  // ── Navigate to subscription from FeatureGate ──
   useEffect(() => {
     const handler = () => setActivePage("subscription");
     window.addEventListener("navigate-to-subscription", handler);
     return () => window.removeEventListener("navigate-to-subscription", handler);
   }, []);
 
+  // ── Data fetchers ──
   async function fetchOverviewData(period: DateRange) {
     try { await fetchDashboardData(period); } catch {}
   }
@@ -110,10 +159,10 @@ export default function App() {
       ]);
       setConversionFunnel([
         { step: "Visitors",      count: data.visitors,               dropoff: null },
-        { step: "Product Views", count: data.product_view_sessions,  dropoff: Math.round((1 - data.product_view_sessions / (data.visitors || 1)) * 100) },
-        { step: "Add to Cart",   count: data.add_to_cart_sessions,   dropoff: Math.round((1 - data.add_to_cart_sessions / (data.product_view_sessions || 1)) * 100) },
-        { step: "Checkout",      count: data.checkout_sessions,      dropoff: Math.round((1 - data.checkout_sessions / (data.add_to_cart_sessions || 1)) * 100) },
-        { step: "Purchase",      count: data.purchase_sessions,      dropoff: Math.round((1 - data.purchase_sessions / (data.checkout_sessions || 1)) * 100) },
+        { step: "Product Views", count: data.product_view_sessions,  dropoff: Math.round((1 - data.product_view_sessions  / (data.visitors               || 1)) * 100) },
+        { step: "Add to Cart",   count: data.add_to_cart_sessions,   dropoff: Math.round((1 - data.add_to_cart_sessions   / (data.product_view_sessions  || 1)) * 100) },
+        { step: "Checkout",      count: data.checkout_sessions,      dropoff: Math.round((1 - data.checkout_sessions      / (data.add_to_cart_sessions   || 1)) * 100) },
+        { step: "Purchase",      count: data.purchase_sessions,      dropoff: Math.round((1 - data.purchase_sessions      / (data.checkout_sessions      || 1)) * 100) },
       ]);
     } catch {}
   }
@@ -165,27 +214,32 @@ export default function App() {
     } catch {}
   }
 
+  // ── Runs all fetchers — called on period change or client switch ──
+  function refreshAllData(period: DateRange) {
+    fetchOverviewData(period);
+    loadTrafficAnalysis(period);
+    loadCountries(period);
+    loadDeviceData(period);
+    loadAcquisition(period);
+    loadPagePerf(period);
+    loadProductRevenue(period);
+    loadCohortRetention(period);
+  }
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    fetchOverviewData(dateRange);
-    loadTrafficAnalysis(dateRange);
-    loadCountries(dateRange);
-    loadDeviceData(dateRange);
-    loadAcquisition(dateRange);
-    loadPagePerf(dateRange);
-    loadProductRevenue(dateRange);
-    loadCohortRetention(dateRange);
+    refreshAllData(dateRange);
   }, [dateRange, isAuthenticated]);
 
   function renderPage() {
     switch (activePage) {
-      case "overview":      return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
-      case "analytics":     return <AnalyticsPage acquisitionChannels={acquisitionChannels} landingPageData={landingPageData} revenueByProduct={revenueByProduct} retentionData={retentionData} />;
-      case "insights":      return <InsightsPage />;
-      case "growth":        return <GrowthPlanPage />;
-      case "reports":       return <ReportsPage />;
-      case "settings":      return <SettingsPage />;
-      case "subscription":  return <SubscriptionPage />;
+      case "overview":     return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
+      case "analytics":    return <AnalyticsPage acquisitionChannels={acquisitionChannels} landingPageData={landingPageData} revenueByProduct={revenueByProduct} retentionData={retentionData} />;
+      case "insights":     return <InsightsPage />;
+      case "growth":       return <GrowthPlanPage />;
+      case "reports":      return <ReportsPage />;
+      case "settings":     return <SettingsPage />;
+      case "subscription": return <SubscriptionPage />;
     }
   }
 
@@ -204,21 +258,17 @@ export default function App() {
   // ── Auth screens ──
   if (!isAuthenticated) {
     return authPage === "signin" ? (
-      <SignInPage
-        onSignIn={() => {}}
-        onGoToSignUp={() => setAuthPage("signup")}
-      />
+      <SignInPage onSignIn={() => {}} onGoToSignUp={() => setAuthPage("signup")} />
     ) : (
-      <SignUpPage
-        onSignUp={() => {}}
-        onGoToSignIn={() => setAuthPage("signin")}
-      />
+      <SignUpPage onSignUp={() => {}} onGoToSignIn={() => setAuthPage("signin")} />
     );
   }
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
+
+  const activeClient = clients.find((c) => c.id === activeClientId);
 
   // ── Dashboard ──
   return (
@@ -257,6 +307,43 @@ export default function App() {
             <X className="w-4 h-4" />
           </button>
         </div>
+
+        {/* Client selector in sidebar */}
+        {clients.length > 0 && (
+          <div className="px-3 py-2.5 border-b border-border lg:block md:hidden block">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 px-1">
+              Active Client
+            </p>
+            <select
+              value={activeClientId}
+              onChange={(e) => handleClientChange(e.target.value)}
+              className="w-full text-xs font-medium text-foreground bg-muted rounded-lg px-2.5 py-2 outline-none cursor-pointer border border-border hover:border-primary/40 transition-colors"
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {activeClient?.ga4Credential && (
+              <p className="text-[10px] text-green-600 font-medium mt-1 px-1">
+                ✓ GA4 connected — {activeClient.ga4Credential.propertyName}
+              </p>
+            )}
+            {activeClient && !activeClient.ga4Credential && (
+              <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                GA4 not connected —{" "}
+                <button
+                  type="button"
+                  className="text-primary underline"
+                  onClick={() => { setActivePage("settings"); setSidebarOpen(false); }}
+                >
+                  Connect
+                </button>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Plan badge */}
         {user?.subscription && (
@@ -336,12 +423,51 @@ export default function App() {
 
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-foreground truncate">{pageTitles[activePage]}</h1>
-            <p className="text-xs text-muted-foreground hidden sm:block">
-              AI-powered business intelligence
-            </p>
+            {/* Show active client name below page title */}
+            {activeClient ? (
+              <p className="text-xs text-muted-foreground hidden sm:block truncate">
+                {activeClient.name}
+                {activeClient.ga4Credential && (
+                  <span className="ml-1.5 text-green-600 font-medium">· GA4 connected</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground hidden sm:block">
+                AI-powered business intelligence
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Client switcher in navbar (compact, for md+ screens) */}
+            {clients.length > 1 && (
+              <div className="hidden md:flex items-center gap-1.5 bg-muted px-2.5 py-1.5 rounded-lg">
+                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Client
+                </span>
+                <select
+                  value={activeClientId}
+                  onChange={(e) => handleClientChange(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer max-w-32 truncate"
+                >
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* No clients yet — prompt to add one */}
+            {clients.length === 0 && isAuthenticated && (
+              <button
+                type="button"
+                onClick={() => setActivePage("settings")}
+                className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
+              >
+                + Add client
+              </button>
+            )}
+
             {/* Theme switcher */}
             <div className="hidden sm:flex">
               <ThemeSwitcher />
@@ -392,7 +518,9 @@ export default function App() {
                   </Avatar>
                   <div className="hidden md:flex flex-col text-left">
                     <span className="text-xs font-semibold text-foreground leading-none">{user?.name}</span>
-                    <span className="text-xs text-muted-foreground capitalize">{user?.subscription?.plan?.displayName || "Free"} plan</span>
+                    <span className="text-xs text-muted-foreground capitalize">
+                      {user?.subscription?.plan?.displayName || "Free"} plan
+                    </span>
                   </div>
                   <ChevronDown className="w-3 h-3 text-muted-foreground hidden md:block" />
                 </button>

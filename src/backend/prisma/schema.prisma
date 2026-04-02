@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Users ───────────────────────────────────────────────────────────────────
+// ─── Users ────────────────────────────────────────────────────────────────────
 
 model User {
   id           String   @id @default(uuid())
@@ -20,9 +20,13 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  subscription Subscription?
-  clients      Client[]
+  subscription  Subscription?
+  clients       Client[]
   refreshTokens RefreshToken[]
+
+  // Team memberships (user can belong to multiple teams)
+  ownedTeams    Team[]       @relation("TeamOwner")
+  teamMembers   TeamMember[]
 
   @@map("users")
 }
@@ -32,7 +36,7 @@ enum Role {
   ADMIN
 }
 
-// ─── Refresh Tokens ──────────────────────────────────────────────────────────
+// ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
 model RefreshToken {
   id        String   @id @default(uuid())
@@ -45,18 +49,18 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-// ─── Subscription Plans & Subscriptions ──────────────────────────────────────
+// ─── Plans & Subscriptions ────────────────────────────────────────────────────
 
 model Plan {
-  id            String         @id @default(uuid())
-  name          String         @unique  // "free" | "growth" | "pro" | "enterprise"
-  displayName   String
-  priceMonthly  Float
-  priceYearly   Float
-  features      Json           // array of feature keys this plan unlocks
-  limits        Json           // { maxClients, maxReports, dataRetentionDays, apiCallsPerDay }
-  isActive      Boolean        @default(true)
-  createdAt     DateTime       @default(now())
+  id           String  @id @default(uuid())
+  name         String  @unique
+  displayName  String
+  priceMonthly Float
+  priceYearly  Float
+  features     Json
+  limits       Json
+  isActive     Boolean @default(true)
+  createdAt    DateTime @default(now())
 
   subscriptions Subscription[]
 
@@ -64,21 +68,21 @@ model Plan {
 }
 
 model Subscription {
-  id              String             @id @default(uuid())
-  userId          String             @unique
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId          String
-  plan            Plan               @relation(fields: [planId], references: [id])
-  status          SubscriptionStatus @default(ACTIVE)
-  billingCycle    BillingCycle       @default(MONTHLY)
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  plan               Plan               @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(ACTIVE)
+  billingCycle       BillingCycle       @default(MONTHLY)
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean         @default(false)
-  trialEndsAt     DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  cancelAtPeriodEnd  Boolean            @default(false)
+  trialEndsAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  history         SubscriptionHistory[]
+  history SubscriptionHistory[]
 
   @@map("subscriptions")
 }
@@ -100,7 +104,7 @@ model SubscriptionHistory {
   id             String       @id @default(uuid())
   subscriptionId String
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  action         String       // "created" | "upgraded" | "downgraded" | "cancelled" | "renewed" | "expired"
+  action         String
   fromPlanId     String?
   toPlanId       String?
   note           String?
@@ -109,52 +113,124 @@ model SubscriptionHistory {
   @@map("subscription_history")
 }
 
-// ─── Clients ─────────────────────────────────────────────────────────────────
+// ─── Clients ──────────────────────────────────────────────────────────────────
 
 model Client {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String
-  domain      String
-  industry    String?
-  platform    String?  // "shopify" | "woocommerce" | "custom" | etc.
-  trackingId  String   @unique @default(uuid())
-  gaPropertyId String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  events      AnalyticsEvent[]
-  sessions    Session[]
+  // Team that owns this client (optional — for future team feature)
+  teamId       String?
+  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  name         String
+  domain       String
+  industry     String?
+  platform     String?
+  trackingId   String   @unique @default(uuid())
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // GA4 connection (one per client — each client is a different website/property)
+  ga4Credential GA4Credential?
 
   @@map("clients")
 }
 
-// ─── Analytics Events ─────────────────────────────────────────────────────────
+// ─── GA4 Credentials ──────────────────────────────────────────────────────────
+// Stores OAuth tokens for a client's connected GA4 property.
+// One record per client — each client (website) has its own GA4 property.
+
+model GA4Credential {
+  id                String   @id @default(uuid())
+  clientId          String   @unique
+  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // GA4 property details
+  propertyId        String   // e.g. "properties/123456789"
+  propertyName      String?  // human readable name e.g. "My Store"
+  accountId         String?  // GA4 account ID
+
+  // OAuth tokens
+  accessToken       String   // short-lived, refreshed automatically
+  refreshToken      String   // long-lived, used to get new access tokens
+  tokenExpiresAt    DateTime // when the current access token expires
+
+  // Google account that authorized this connection
+  googleEmail       String?
+
+  isActive          Boolean  @default(true)
+  connectedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("ga4_credentials")
+}
+
+// ─── Teams (stub — for future multi-member team feature) ─────────────────────
+// Structure is ready, feature not yet active.
+// A team is owned by a user (account owner) and can have multiple members
+// with different roles. Clients can be assigned to a team so all team
+// members can access them.
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  ownerId     String
+  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members     TeamMember[]
+  clients     Client[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String     @id @default(uuid())
+  teamId    String
+  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      TeamRole   @default(VIEWER)
+  joinedAt  DateTime   @default(now())
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+enum TeamRole {
+  OWNER    // full access — can manage team, clients, billing
+  ADMIN    // can manage clients and GA4 connections
+  ANALYST  // can view all data, cannot change settings
+  VIEWER   // read-only access to dashboard
+}
+
+// ─── Analytics Events (for own tracking, separate from GA4) ──────────────────
 
 model Session {
-  id          String   @id @default(uuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sessionId   String   @unique
-  userId      String?
-  device      String?  // "mobile" | "desktop" | "tablet"
-  browser     String?
-  os          String?
-  country     String?
-  city        String?
-  source      String?  // traffic source
-  medium      String?
-  campaign    String?
-  startedAt   DateTime @default(now())
-  endedAt     DateTime?
-  duration    Int?     // seconds
-  pageViews   Int      @default(0)
-  bounced     Boolean  @default(false)
-  converted   Boolean  @default(false)
+  id        String   @id @default(uuid())
+  clientId  String
+  sessionId String   @unique
+  userId    String?
+  device    String?
+  browser   String?
+  os        String?
+  country   String?
+  city      String?
+  source    String?
+  medium    String?
+  campaign  String?
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  duration  Int?
+  pageViews Int      @default(0)
+  bounced   Boolean  @default(false)
+  converted Boolean  @default(false)
 
-  events      AnalyticsEvent[]
+  events    AnalyticsEvent[]
 
   @@index([clientId, startedAt])
   @@map("sessions")
@@ -163,12 +239,11 @@ model Session {
 model AnalyticsEvent {
   id         String   @id @default(uuid())
   clientId   String
-  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   sessionId  String?
   session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  eventType  String   // "page_view" | "click" | "purchase" | "add_to_cart" | "checkout" | etc.
+  eventType  String
   page       String?
-  properties Json?    // flexible event metadata
+  properties Json?
   revenue    Float?
   currency   String?
   userId     String?

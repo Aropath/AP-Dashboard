@@ -6,11 +6,11 @@ import { ThemeProvider } from "./context/ThemeContext";
 import "../index.css";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
-  // <React.StrictMode>
+  <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
         <App />
       </AuthProvider>
     </ThemeProvider>
-  // </React.StrictMode>
+  </React.StrictMode>
 );

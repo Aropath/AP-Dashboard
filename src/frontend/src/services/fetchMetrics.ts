@@ -1,8 +1,20 @@
-export const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
-const API_USER_AUTH = "http://localhost:5000/api"; // old backend port, in case we need to switch back for testing
+export const API_BASE = import.meta.env.VITE_ANALYTICS_API_URL || "http://localhost:5001/api";
+export const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 
 function getToken(): string {
   return localStorage.getItem("access_token") || "";
+}
+
+// Active clientId — set this when user selects a client
+let activeClientId: string = localStorage.getItem("active_client_id") || "";
+
+export function setActiveClient(clientId: string) {
+  activeClientId = clientId;
+  localStorage.setItem("active_client_id", clientId);
+}
+
+export function getActiveClient(): string {
+  return activeClientId;
 }
 
 async function authFetch(url: string) {
@@ -12,10 +24,13 @@ async function authFetch(url: string) {
 
   if (res.status === 403) {
     const data = await res.json();
-    // Feature not on plan — return empty array/object gracefully
     if (data.code === "FEATURE_NOT_AVAILABLE") {
       console.warn(`Feature gate: ${data.error}`);
-      return null; // caller handles null
+      return null;
+    }
+    if (data.code === "GA4_NOT_CONNECTED") {
+      console.warn(`GA4 not connected: ${data.error}`);
+      return null;
     }
   }
 
@@ -23,50 +38,58 @@ async function authFetch(url: string) {
   return res.json();
 }
 
+function withClient(url: string): string {
+  if (!activeClientId) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}clientId=${activeClientId}`;
+}
+
+// ─── Analytics (port 5001) ────────────────────────────────────────────────────
+
 export async function fetchLatestMetrics() {
-  return authFetch(`${API_BASE}/metrics/latest`);
+  return authFetch(withClient(`${API_BASE}/metrics/latest`));
 }
 
 export async function fetchDashboardData(period: string) {
-  return authFetch(`${API_BASE}/dashboard?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard?period=${period}`));
 }
 
 export async function fetchTrafficAnalysis(period: string) {
-  return authFetch(`${API_BASE}/dashboard/trafficAnalysis?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/trafficAnalysis?period=${period}`));
 }
 
 export async function fetchTopCountries(period: string) {
-  return authFetch(`${API_BASE}/dashboard/topCountries?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/topCountries?period=${period}`));
 }
 
 export async function fetchAcquisitionChannels(period: string) {
-  return authFetch(`${API_BASE}/dashboard/acquisitionChannels?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/acquisitionChannels?period=${period}`));
 }
 
 export async function fetchPagePerformance(period: string) {
-  return authFetch(`${API_BASE}/dashboard/pagePerformance?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/pagePerformance?period=${period}`));
 }
 
 export async function fetchProductRevenue(period: string) {
-  return authFetch(`${API_BASE}/dashboard/productRevenue?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/productRevenue?period=${period}`));
 }
 
 export async function fetchCohortRetention(period: string) {
-  return authFetch(`${API_BASE}/dashboard/cohortRetention?period=${period}`);
+  return authFetch(withClient(`${API_BASE}/dashboard/cohortRetention?period=${period}`));
 }
 
-// ─── Subscription ─────────────────────────────────────────────────────────────
+// ─── Subscription (port 5000) ─────────────────────────────────────────────────
 
 export async function fetchSubscription() {
-  return authFetch(`${API_USER_AUTH}/subscription`);
+  return authFetch(`${AUTH_API}/subscription`);
 }
 
 export async function fetchPlans() {
-  return authFetch(`${API_USER_AUTH}/subscription/plans`);
+  return authFetch(`${AUTH_API}/subscription/plans`);
 }
 
 export async function changePlan(planName: string, billingCycle: "MONTHLY" | "YEARLY") {
-  const res = await fetch(`${API_USER_AUTH}/subscription/change`, {
+  const res = await fetch(`${AUTH_API}/subscription/change`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -79,7 +102,7 @@ export async function changePlan(planName: string, billingCycle: "MONTHLY" | "YE
 }
 
 export async function cancelSubscription() {
-  const res = await fetch(`${API_USER_AUTH}/subscription/cancel`, {
+  const res = await fetch(`${AUTH_API}/subscription/cancel`, {
     method: "POST",
     headers: { Authorization: `Bearer ${getToken()}` },
   });
@@ -87,16 +110,16 @@ export async function cancelSubscription() {
   return res.json();
 }
 
-// ─── Clients ──────────────────────────────────────────────────────────────────
+// ─── Clients (port 5000) ──────────────────────────────────────────────────────
 
 export async function fetchClients() {
-  return authFetch(`${API_USER_AUTH}/clients`);
+  return authFetch(`${AUTH_API}/clients`);
 }
 
 export async function createClient(data: {
   name: string; domain: string; industry?: string; platform?: string;
 }) {
-  const res = await fetch(`${API_USER_AUTH}/clients`, {
+  const res = await fetch(`${AUTH_API}/clients`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -110,7 +133,7 @@ export async function createClient(data: {
 }
 
 export async function deleteClient(id: string) {
-  const res = await fetch(`${API_USER_AUTH}/clients/${id}`, {
+  const res = await fetch(`${AUTH_API}/clients/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${getToken()}` },
   });
