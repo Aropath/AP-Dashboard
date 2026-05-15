@@ -52,10 +52,12 @@ export default function GoogleLoginButton({ onSuccess }: GoogleLoginButtonProps)
   }
 
   useEffect(() => {
-    const init = () => {
+    const interval = setInterval(() => {
       if (!window.google || !hiddenButtonRef.current) return
-      if (initializedRef.current) return  // ← skip if already initialized
+      if (initializedRef.current) return
+
       initializedRef.current = true
+      clearInterval(interval)
 
       window.google.accounts.id.initialize({
         client_id: "674845336080-2ac4q9t9o5edvkc9f8iorgr8hgcnosa2.apps.googleusercontent.com",
@@ -69,19 +71,9 @@ export default function GoogleLoginButton({ onSuccess }: GoogleLoginButtonProps)
         width: "400",
         ux_mode: "popup",
       })
-    }
+    }, 100)
 
-    if (window.google) {
-      init()
-    } else {
-      const interval = setInterval(() => {
-        if (window.google) {
-          clearInterval(interval)
-          init()
-        }
-      }, 100)
-      return () => clearInterval(interval)
-    }
+    return () => clearInterval(interval)
   }, [])
 
   const handleClick = () => {
