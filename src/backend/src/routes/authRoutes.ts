@@ -5,6 +5,7 @@ import {
 } from "../controllers/authController";
 import { requireAuth } from "../middleware/auth";
 
+console.log("AUTH ROUTES LOADED");
 const router = Router();
 
 router.post("/signup", signUp);

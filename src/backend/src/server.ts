@@ -43,8 +43,8 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 
 const PORT = parseInt(process.env.PORT || "5000", 10);
 
-app.listen(PORT, () => {
-  console.log(`\n🔐 Auth service running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`\n🔐 Auth service running on port:${PORT}`);
   startSubscriptionCron();
 });
 
