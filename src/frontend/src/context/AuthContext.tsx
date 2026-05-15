@@ -48,7 +48,7 @@ interface AuthContextValue {
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 
 async function apiPost(path: string, body: object, token?: string) {
   const res = await fetch(`${API}${path}`, {
