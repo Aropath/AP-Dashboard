@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -130,42 +131,11 @@ model Client {
   platform     String?
   trackingId   String   @unique @default(uuid())
   isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  createdAt    DateTime @default(now()) 
   updatedAt    DateTime @updatedAt
-
-  // GA4 connection (one per client — each client is a different website/property)
-  ga4Credential GA4Credential?
+  projectApiKeys ProjectApiKey[]
 
   @@map("clients")
-}
-
-// ─── GA4 Credentials ──────────────────────────────────────────────────────────
-// Stores OAuth tokens for a client's connected GA4 property.
-// One record per client — each client (website) has its own GA4 property.
-
-model GA4Credential {
-  id                String   @id @default(uuid())
-  clientId          String   @unique
-  client            Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  // GA4 property details
-  propertyId        String   // e.g. "properties/123456789"
-  propertyName      String?  // human readable name e.g. "My Store"
-  accountId         String?  // GA4 account ID
-
-  // OAuth tokens
-  accessToken       String   // short-lived, refreshed automatically
-  refreshToken      String   // long-lived, used to get new access tokens
-  tokenExpiresAt    DateTime // when the current access token expires
-
-  // Google account that authorized this connection
-  googleEmail       String?
-
-  isActive          Boolean  @default(true)
-  connectedAt       DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@map("ga4_credentials")
 }
 
 // ─── Teams (stub — for future multi-member team feature) ─────────────────────
@@ -251,4 +221,18 @@ model AnalyticsEvent {
 
   @@index([clientId, eventType, occurredAt])
   @@map("analytics_events")
+}
+
+model ProjectApiKey {
+  id        String    @id @default(uuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  keyPrefix String    // first 18 chars of raw key — safe to display masked
+  keyHash   String    @unique  // SHA-256 of raw key — used for verification
+  createdAt DateTime  @default(now())
+  revokedAt DateTime? // null = active; set when rotated or deleted
+
+  @@index([clientId])
+  @@map("project_api_keys")
 }

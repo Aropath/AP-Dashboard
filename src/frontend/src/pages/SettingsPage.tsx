@@ -1,5 +1,9 @@
-import { useState, useRef, useEffect } from "react";
-import { Check, Upload, Link2, RefreshCw, X, ChevronDown } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Check, RefreshCw, X, Plus, Copy, Eye, EyeOff,
+  KeyRound, Trash2, AlertTriangle,
+} from "lucide-react";
+// import { BrevoAutomation } from "../components/BrevoAutomation";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,251 +28,179 @@ const timezones = [
   "Asia/Kolkata (IST)",
 ];
 
-interface GA4Property {
-  propertyId: string;
-  propertyName: string;
-  accountId: string;
-  accountName: string;
-}
+// ─── Types ──────────────────────────────────────────────────────────────────
 
-interface Client {
+interface SdkProject {
   id: string;
   name: string;
-  domain: string;
-  ga4Credential?: {
-    propertyId: string;
-    propertyName: string;
-    googleEmail: string;
-    connectedAt: string;
-  } | null;
+  domain: string | null;
+  trackingId: string;
+  activeApiKey: { masked: string } | null;
+  isActive: boolean;
+  createdAt: string;
 }
+
+interface NewKeyReveal {
+  projectId: string;
+  projectName: string;
+  apiKey: string; // raw — shown once only
+}
+
+
+// ─── Helpers (match existing SettingsPage pattern exactly) ──────────────────
+
+const token = () => {
+  const t = localStorage.getItem("access_token");
+  if (!t) throw new Error("No auth token");
+  return t;
+};
+
+const safeFetch = async (url: string, options: RequestInit = {}): Promise<any> => {
+  const res = await fetch(url, options);
+  let data: any;
+  try { data = await res.json(); } catch { throw new Error("Invalid server response"); }
+  if (!res.ok) throw new Error(data?.error || "Request failed");
+  return data;
+};
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
   const { user } = useAuth();
+
+  // Preferences
   const [currency, setCurrency] = useState("USD");
   const [timezone, setTimezone] = useState("Asia/Kolkata (IST)");
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [saved, setSaved] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Clients + GA4 state
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loadingClients, setLoadingClients] = useState(true);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
+  // ── SDK Projects ─────────────────────────────────────────────────────────
+  const [projects, setProjects] = useState<SdkProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDomain, setNewProjectDomain] = useState("");
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [lastIssuedKey, setLastIssuedKey] = useState<NewKeyReveal | null>(null);
+  const [showRawKey, setShowRawKey] = useState(false);
+  const [projectError, setProjectError] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // GA4 OAuth flow state
-  const [ga4Step, setGa4Step] = useState<"idle" | "connecting" | "picking" | "saving" | "done" | "error">("idle");
-  const [ga4Properties, setGa4Properties] = useState<GA4Property[]>([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
-  const [tempAuthData, setTempAuthData] = useState<any>(null);
-  const [ga4Error, setGa4Error] = useState<string>("");
 
-  const token = () => {
-    const t = localStorage.getItem("access_token");
-    if (!t) throw new Error("No auth token");
-    return t;
-  };
 
-  const safeFetch = async (url: string, options: any = {}) => {
-    const res = await fetch(url, options);
+  // ── Load projects ─────────────────────────────────────────────────────────
 
-    let data
+  const loadProjects = useCallback(async () => {
     try {
-      data = await res.json();
-    } catch {
-      throw new Error("Invalid server response");
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || "Request failed");
-    }
-
-    return data;
-  };
-
-  // ── Load clients ──
-  useEffect(() => {
-    const loadClients = async () => {
-      try {
-        const t = token();
-        const data = await safeFetch(`${AUTH_API}/clients`, {
-          headers: { Authorization: `Bearer ${t}` },
-        });
-
-        if (Array.isArray(data)) {
-          setClients(data);
-          if (data.length > 0 && !selectedClientId) {
-            setSelectedClientId(data[0].id);
-          }
-        } else {
-          throw new Error("Invalid clients response");
-        }
-      } catch (err: any) {
-        console.error(err.message);
-        setClients([]);
-      } finally {
-        setLoadingClients(false);
-      }
-    };
-
-    loadClients();
-  }, []);
-
-  // ── Handle GA4 OAuth callback redirect ──
-  // When Google redirects back to /settings?ga4=pick_property&data=...
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const ga4Status = params.get("ga4");
-    const data = params.get("data");
-
-    if (ga4Status === "pick_property" && data) {
-      try {
-        const decoded = JSON.parse(atob(data));
-        if (!decoded?.accessToken || !decoded?.clientId) {
-          throw new Error("Invalid OAuth payload");
-        }
-        setTempAuthData(decoded);
-        setSelectedClientId(decoded.clientId);
-        // Fetch property list using the access token
-        fetchProperties(decoded.accessToken, decoded);
-      } catch {
-        setGa4Error("Failed to parse OAuth response");
-        setGa4Step("error");
-      }
-      // Clean URL
-      window.history.replaceState({}, "", "/settings");
-    } else if (ga4Status === "error") {
-      const reason = params.get("reason") || "Unknown error";
-      setGa4Error(`Google authorization failed: ${reason}`);
-      setGa4Step("error");
-      window.history.replaceState({}, "", "/settings");
-    }
-  }, []);
-
-  async function fetchProperties(accessToken: string, authData: any) {
-    setGa4Step("picking");
-
-    try {
-      const data = await safeFetch(`${AUTH_API}/ga4/auth/properties`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token()}`,
-        },
-        body: JSON.stringify({ accessToken }),
+      const data = await safeFetch(`${AUTH_API}/sdk/projects`, {
+        headers: { Authorization: `Bearer ${token()}` },
       });
-
-      setGa4Properties(Array.isArray(data.properties) ? data.properties : []);
-      setTempAuthData(authData);
-
+      setProjects(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      setGa4Error(err.message);
-      setGa4Step("error");
+      console.error("Failed to load projects:", err.message);
+    } finally {
+      setLoadingProjects(false);
     }
-  }
+  }, []);
 
-  // ── Step 1: Initiate GA4 OAuth ──
-  async function handleConnectGA4() {
-    if (!selectedClientId) {
-      setGa4Error("Please select a client first");
-      return;
-    }
+  useEffect(() => { loadProjects(); }, [loadProjects]);
 
-    setGa4Step("connecting");
-    setGa4Error("");
+
+
+  // ── Project actions ───────────────────────────────────────────────────────
+
+  async function handleCreateProject(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+
+    setCreatingProject(true);
+    setProjectError("");
+    setLastIssuedKey(null);
+    setShowRawKey(false);
 
     try {
-      const data = await safeFetch(
-        `${AUTH_API}/ga4/auth/url?clientId=${selectedClientId}`,
-        { headers: { Authorization: `Bearer ${token()}` } }
-      );
-
-      window.location.href = data.url;
-
-    } catch (err: any) {
-      setGa4Error(err.message);
-      setGa4Step("error");
-    }
-  }
-
-  // ── Step 2: Save selected property ──
-  async function handleSaveProperty() {
-    if (!selectedPropertyId || !tempAuthData) return;
-
-    const property = ga4Properties.find((p) => p.propertyId === selectedPropertyId);
-    if (!property) return;
-
-    setGa4Step("saving");
-
-    try {
-      const data = await safeFetch(`${AUTH_API}/ga4/auth/connect`, {
+      const data = await safeFetch(`${AUTH_API}/sdk/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token()}`,
         },
         body: JSON.stringify({
-          clientId: tempAuthData.clientId,
-          propertyId: property.propertyId,
-          propertyName: property.propertyName,
-          accountId: property.accountId,
-          accessToken: tempAuthData.accessToken,
-          refreshToken: tempAuthData.refreshToken,
-          expiresAt: tempAuthData.expiresAt,
-          googleEmail: tempAuthData.googleEmail,
+          name: newProjectName.trim(),
+          domain: newProjectDomain.trim() || undefined,
         }),
       });
 
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === tempAuthData.clientId
-            ? { ...c, ga4Credential: data.credential }
-            : c
-        )
-      );
-
-      setGa4Step("done");
-      setTempAuthData(null);
-      setGa4Properties([]);
-
+      // Raw key shown once — mirrors the tracker SDK frontend behaviour exactly
+      setLastIssuedKey({
+        projectId: data.project.id,
+        projectName: data.project.name,
+        apiKey: data.apiKey,
+      });
+      setShowRawKey(true);
+      setNewProjectName("");
+      setNewProjectDomain("");
+      await loadProjects();
     } catch (err: any) {
-      setGa4Error(err.message);
-      setGa4Step("error");
+      setProjectError(err.message);
+    } finally {
+      setCreatingProject(false);
     }
   }
 
-  // ── Disconnect GA4 ──
-  async function handleDisconnect(clientId: string) {
-    if (!confirm("Disconnect GA4 from this client?")) return;
+  async function handleRegenerate(project: SdkProject) {
+    if (!confirm(`Regenerate the API key for "${project.name}"?\n\nThe current key will stop working immediately.`)) return;
+
+    setRegeneratingId(project.id);
+    setLastIssuedKey(null);
+    setShowRawKey(false);
 
     try {
-      await safeFetch(`${AUTH_API}/ga4/auth/disconnect/${clientId}`, {
+      const data = await safeFetch(
+        `${AUTH_API}/sdk/projects/${project.id}/api-key/regenerate`,
+        { method: "POST", headers: { Authorization: `Bearer ${token()}` } }
+      );
+
+      setLastIssuedKey({
+        projectId: data.project.id,
+        projectName: data.project.name,
+        apiKey: data.apiKey,
+      });
+      setShowRawKey(true);
+      await loadProjects();
+    } catch (err: any) {
+      setProjectError(err.message);
+    } finally {
+      setRegeneratingId(null);
+    }
+  }
+
+  async function handleDelete(project: SdkProject) {
+    if (!confirm(`Delete "${project.name}"?\n\nThis cannot be undone.`)) return;
+
+    setDeletingId(project.id);
+    try {
+      await safeFetch(`${AUTH_API}/sdk/projects/${project.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token()}` },
       });
-
-      setClients((prev) =>
-        prev.map((c) =>
-          c.id === clientId ? { ...c, ga4Credential: null } : c
-        )
-      );
-
+      setProjects((prev) => prev.filter((p) => p.id !== project.id));
+      if (lastIssuedKey?.projectId === project.id) setLastIssuedKey(null);
     } catch (err: any) {
-      setGa4Error(err.message);
+      setProjectError(err.message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) setUploadedFile(file.name);
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file?.name.endsWith(".csv")) setUploadedFile(file.name);
+  async function handleCopy(text: string, id: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setProjectError("Clipboard copy failed.");
+    }
   }
 
   function handleSave() {
@@ -276,244 +208,246 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 2500);
   }
 
-  const selectedClient = Array.isArray(clients)
-    ? clients.find((c) => c.id === selectedClientId)
-    : undefined;
-  const isConnected = !!selectedClient?.ga4Credential;
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="max-w-2xl space-y-6">
 
-      {/* Integrations */}
+      {/* ── SDK Tracking Projects ──────────────────────────────────────── */}
       <section>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          Integrations
+          SDK &amp; Tracking
         </h2>
-        <div className="space-y-4">
 
-          {/* Google Analytics */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border space-y-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0 text-xl">
-                  📊
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">Google Analytics 4</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Connect a GA4 property to pull real analytics data
-                  </p>
-                </div>
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border space-y-5">
+
+          {/* Header */}
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <KeyRound className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Tracking Projects</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Each project gets a unique API key for the tracker SDK. Keys are stored hashed —
+                the raw key is shown only once, on creation or after a regenerate.
+              </p>
+            </div>
+          </div>
+
+          {/* Create project form */}
+          <form
+            onSubmit={handleCreateProject}
+            className="rounded-xl border border-border bg-muted/20 p-4 space-y-3"
+          >
+            <p className="text-xs font-semibold text-foreground">New project</p>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs text-muted-foreground">Project name *</Label>
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="Acme storefront"
+                  autoComplete="off"
+                  required
+                  className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs text-muted-foreground">Domain (optional)</Label>
+                <input
+                  type="text"
+                  value={newProjectDomain}
+                  onChange={(e) => setNewProjectDomain(e.target.value)}
+                  placeholder="acme.com"
+                  autoComplete="off"
+                  className="w-full h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+                />
               </div>
             </div>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              disabled={creatingProject || !newProjectName.trim()}
+            >
+              {creatingProject
+                ? <><RefreshCw className="w-3 h-3 animate-spin" />Creating...</>
+                : <><Plus className="w-3 h-3" />Create Project</>}
+            </Button>
+          </form>
 
-            {/* Client selector */}
-            {!loadingClients && clients.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Select client to connect
-                </Label>
-                <Select
-                  value={selectedClientId}
-                  onValueChange={(v) => {
-                    setSelectedClientId(v);
-                    setGa4Step("idle");
-                    setGa4Error("");
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Pick a client..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id} className="text-sm">
-                        <span className="flex items-center gap-2">
-                          {c.name}
-                          <span className="text-xs text-muted-foreground">— {c.domain}</span>
-                          {c.ga4Credential && (
-                            <span className="text-xs text-green-600 font-semibold">✓ Connected</span>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          {/* Error */}
+          {projectError && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600">
+              <span>{projectError}</span>
+              <button type="button" onClick={() => setProjectError("")}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
-            {loadingClients && (
-              <p className="text-xs text-muted-foreground">Loading clients...</p>
-            )}
-
-            {!loadingClients && clients.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No clients yet. Add a client first to connect GA4.
-              </p>
-            )}
-
-            {/* Connected state */}
-            {selectedClient?.ga4Credential && (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+          {/* One-time raw key reveal — shown after create or regen */}
+          {lastIssuedKey && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-semibold text-green-700">
-                    ✓ Connected — {selectedClient.ga4Credential.propertyName}
+                  <p className="text-xs font-semibold text-amber-800">
+                    API key for &quot;{lastIssuedKey.projectName}&quot; — save it now
                   </p>
-                  <p className="text-xs text-green-600 mt-0.5">
-                    {selectedClient.ga4Credential.googleEmail} ·{" "}
-                    {selectedClient.ga4Credential.propertyId}
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    This raw key won&apos;t be shown again. Copy it into your environment variables before leaving this page.
                   </p>
                 </div>
-                <Button
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-100 px-3 py-2">
+                <code className="flex-1 break-all font-mono text-xs text-amber-900">
+                  {showRawKey
+                    ? lastIssuedKey.apiKey
+                    : "trk_live_••••••••••••••••••••••••••••••••"}
+                </code>
+                <button
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => handleDisconnect(selectedClient.id)}
+                  className="shrink-0 text-amber-700 hover:text-amber-900"
+                  onClick={() => setShowRawKey((v) => !v)}
                 >
-                  Disconnect
-                </Button>
-              </div>
-            )}
-
-            {/* Property picker (after OAuth) */}
-            {(ga4Step === "picking" || ga4Step === "saving") && ga4Properties.length > 0 && (
-              <div className="space-y-3 border border-primary/20 rounded-xl p-4 bg-accent/30">
-                <p className="text-xs font-semibold text-foreground">
-                  Select your GA4 property
-                </p>
-                <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Choose a GA4 property..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ga4Properties.map((p) => (
-                      <SelectItem key={p.propertyId} value={p.propertyId} className="text-sm">
-                        <span className="flex flex-col">
-                          <span>{p.propertyName}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {p.accountName} · {p.propertyId}
-                          </span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-8 text-xs"
-                    disabled={!selectedPropertyId || ga4Step === "saving"}
-                    onClick={handleSaveProperty}
-                  >
-                    {ga4Step === "saving" ? (
-                      <><RefreshCw className="w-3 h-3 animate-spin mr-1" />Saving...</>
-                    ) : "Connect Property"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    onClick={() => { setGa4Step("idle"); setGa4Properties([]); }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Error message */}
-            {ga4Error && (
-              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600">
-                <span>{ga4Error}</span>
-                <button onClick={() => { setGa4Error(""); setGa4Step("idle"); }}>
-                  <X className="w-3.5 h-3.5" />
+                  {showRawKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <button
+                  type="button"
+                  className="shrink-0 text-amber-700 hover:text-amber-900"
+                  onClick={() => handleCopy(lastIssuedKey.apiKey, lastIssuedKey.projectId)}
+                >
+                  {copiedId === lastIssuedKey.projectId
+                    ? <Check className="w-4 h-4 text-green-600" />
+                    : <Copy className="w-4 h-4" />}
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Connect button */}
-            {!isConnected && ga4Step !== "picking" && (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 text-xs gap-1.5"
-                disabled={ga4Step === "connecting" || !selectedClientId}
-                onClick={handleConnectGA4}
-              >
-                {ga4Step === "connecting" ? (
-                  <><RefreshCw className="w-3 h-3 animate-spin" />Connecting...</>
-                ) : (
-                  <><Link2 className="w-3 h-3" />Connect GA4</>
-                )}
-              </Button>
-            )}
+          {/* Project list */}
+          {loadingProjects ? (
+            <p className="text-xs text-muted-foreground">Loading projects...</p>
+          ) : projects.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/10 p-5 text-center">
+              <p className="text-xs text-muted-foreground">
+                No projects yet. Create your first one above — the backend will generate a fresh{" "}
+                <code className="font-mono text-xs">trk_live_*</code> key for it.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="rounded-xl border border-border bg-background p-4 space-y-3"
+                >
+                  {/* Project header row */}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground truncate">{project.name}</p>
+                      {project.domain && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{project.domain}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground/60 mt-1">
+                        Created {new Date(project.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs gap-1"
+                        disabled={regeneratingId === project.id}
+                        onClick={() => handleRegenerate(project)}
+                        title="Regenerate API key"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${regeneratingId === project.id ? "animate-spin" : ""}`} />
+                        Regen key
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 w-7 p-0 text-red-500 border-red-200 hover:bg-red-50"
+                        disabled={deletingId === project.id}
+                        onClick={() => handleDelete(project)}
+                        title="Delete project"
+                      >
+                        {deletingId === project.id
+                          ? <RefreshCw className="w-3 h-3 animate-spin" />
+                          : <Trash2 className="w-3 h-3" />}
+                      </Button>
+                    </div>
+                  </div>
 
-            {/* Re-connect button for connected clients */}
-            {isConnected && (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs gap-1.5"
-                disabled={ga4Step === "connecting"}
-                onClick={handleConnectGA4}
-              >
-                <RefreshCw className="w-3 h-3" />
-                Re-authorise
-              </Button>
-            )}
-          </div>
+                  {/* Active key (masked) */}
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                        Active API Key
+                      </p>
+                      <code className="font-mono text-xs text-foreground">
+                        {project.activeApiKey?.masked ?? "No active key"}
+                      </code>
+                    </div>
+                    {project.activeApiKey?.masked && (
+                      <button
+                        type="button"
+                        className="shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleCopy(project.activeApiKey!.masked, project.id)}
+                        title="Copy masked key"
+                      >
+                        {copiedId === project.id
+                          ? <Check className="w-4 h-4 text-green-600" />
+                          : <Copy className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
 
-          {/* CSV Upload */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
-            <h3 className="text-sm font-semibold text-foreground mb-1">CSV Data Import</h3>
-            <p className="text-xs text-muted-foreground mb-4">
-              Upload a CSV file to import historical data. Supports GA exports and custom formats.
-            </p>
-            <button
-              type="button"
-              className={`w-full border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer ${isDragging
-                ? "border-primary bg-accent"
-                : uploadedFile
-                  ? "border-green-400 bg-green-50"
-                  : "border-border hover:border-primary/50 hover:bg-muted/30"
-                }`}
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-              {uploadedFile ? (
-                <div>
-                  <Check className="w-8 h-8 mx-auto mb-2" style={{ color: "#16a34a" }} />
-                  <p className="text-sm font-semibold text-foreground">{uploadedFile}</p>
-                  <p className="text-xs text-muted-foreground mt-1">File ready to import</p>
+                  {/* Tracking ID */}
+                  <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                      Tracking ID (public — embed in your site)
+                    </p>
+                    <code className="font-mono text-xs text-foreground break-all">
+                      {project.trackingId}
+                    </code>
+                  </div>
+
+                  {/* SDK snippet */}
+                  <details>
+                    <summary className="cursor-pointer select-none text-xs text-primary hover:underline">
+                      View SDK snippet
+                    </summary>
+                    <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 px-4 py-3 font-mono text-xs leading-relaxed text-cyan-100">
+{`<script>
+  window.TRACKER_KEY = "${project.activeApiKey?.masked ?? "<your-api-key>"}";
+  window.TRACKER_ID  = "${project.trackingId}";
+</script>
+<script src="https://cdn.yourapp.com/tracker.js" defer></script>`}
+                    </pre>
+                  </details>
                 </div>
-              ) : (
-                <div>
-                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">Drop your CSV file here</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    or <span className="text-primary font-medium">click to browse</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground/70 mt-2">Supports .csv files up to 50MB</p>
-                </div>
-              )}
-            </button>
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Preferences */}
+      {/* ── CRM & Email Automation (Brevo) ─────────────────────────────── */}
+      {/* <section>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Marketing Automation
+        </h2>
+        <BrevoAutomation hasProjects={projects.length > 0} />
+      </section> */}
+
+      {/* ── Preferences ────────────────────────────────────────────────── */}
       <section>
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Preferences
@@ -551,7 +485,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Save */}
+      {/* ── Save ───────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <Button
           type="button"
@@ -568,7 +502,12 @@ export default function SettingsPage() {
       <footer className="pt-4 pb-2 text-center">
         <p className="text-xs text-muted-foreground">
           © 2026. Built with ❤️ using{" "}
-          <a href="https://caffeine.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+          <a
+            href="https://caffeine.ai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
             caffeine.ai
           </a>
         </p>
