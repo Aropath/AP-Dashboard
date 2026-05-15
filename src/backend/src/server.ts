@@ -4,7 +4,6 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import subscriptionRoutes from "./routes/subscriptionRoutes";
 import clientRoutes from "./routes/clientRoutes";
-import ga4AuthRoutes from "./routes/ga4AuthRoutes";
 import { startSubscriptionCron } from "./services/subscriptionCron";
 import projectRoutes from "./routes/projectRoutes";
 // import brevoRoutes from "./routes/brevoRoutes";
@@ -27,7 +26,6 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/clients", clientRoutes);
-app.use("/api/ga4/auth", ga4AuthRoutes);   // ← GA4 OAuth + token storage
 // app.use("/api/brevo", brevoRoutes);        // ← Brevo API routes
 app.use("/api/sdk/projects", projectRoutes);   // ← Project API Management routes
 

@@ -37,7 +37,7 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
 // ─── Create client ────────────────────────────────────────────────────────────
 
 export async function createClient(req: AuthRequest, res: Response): Promise<void> {
-  const { name, domain, industry, platform, gaPropertyId } = req.body;
+  const { name, domain, industry, platform } = req.body;
 
   if (!name || !domain) {
     res.status(400).json({ error: "name and domain are required" });
@@ -75,7 +75,6 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
         domain,
         industry,
         platform,
-        gaPropertyId,
       },
     });
 
@@ -90,7 +89,7 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
 
 export async function updateClient(req: AuthRequest, res: Response): Promise<void> {
   const { id } = req.params;
-  const { name, domain, industry, platform, gaPropertyId, isActive } = req.body;
+  const { name, domain, industry, platform, isActive } = req.body;
 
   try {
     const existing = await prisma.client.findFirst({
@@ -104,7 +103,7 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
 
     const updated = await prisma.client.update({
       where: { id },
-      data: { name, domain, industry, platform, gaPropertyId, isActive },
+      data: { name, domain, industry, platform, isActive },
     });
 
     res.json(updated);

@@ -24,10 +24,11 @@ model User {
   subscription  Subscription?
   clients       Client[]
   refreshTokens RefreshToken[]
+  brevoToken    BrevoToken?
 
   // Team memberships (user can belong to multiple teams)
-  ownedTeams    Team[]       @relation("TeamOwner")
-  teamMembers   TeamMember[]
+  ownedTeams  Team[]       @relation("TeamOwner")
+  teamMembers TeamMember[]
 
   @@map("users")
 }
@@ -53,14 +54,14 @@ model RefreshToken {
 // ─── Plans & Subscriptions ────────────────────────────────────────────────────
 
 model Plan {
-  id           String  @id @default(uuid())
-  name         String  @unique
+  id           String   @id @default(uuid())
+  name         String   @unique
   displayName  String
   priceMonthly Float
   priceYearly  Float
   features     Json
   limits       Json
-  isActive     Boolean @default(true)
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
   subscriptions Subscription[]
@@ -117,22 +118,22 @@ model SubscriptionHistory {
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
 model Client {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Team that owns this client (optional — for future team feature)
-  teamId       String?
-  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId String?
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
 
-  name         String
-  domain       String
-  industry     String?
-  platform     String?
-  trackingId   String   @unique @default(uuid())
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now()) 
-  updatedAt    DateTime @updatedAt
+  name           String
+  domain         String
+  industry       String?
+  platform       String?
+  trackingId     String          @unique @default(uuid())
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   projectApiKeys ProjectApiKey[]
 
   @@map("clients")
@@ -145,45 +146,45 @@ model Client {
 // members can access them.
 
 model Team {
-  id          String   @id @default(uuid())
-  name        String
-  ownerId     String
-  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  owner     User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  members     TeamMember[]
-  clients     Client[]
+  members TeamMember[]
+  clients Client[]
 
   @@map("teams")
 }
 
 model TeamMember {
-  id        String     @id @default(uuid())
-  teamId    String
-  team      Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      TeamRole   @default(VIEWER)
-  joinedAt  DateTime   @default(now())
+  id       String   @id @default(uuid())
+  teamId   String
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     TeamRole @default(VIEWER)
+  joinedAt DateTime @default(now())
 
   @@unique([teamId, userId])
   @@map("team_members")
 }
 
 enum TeamRole {
-  OWNER    // full access — can manage team, clients, billing
-  ADMIN    // can manage clients and GA4 connections
-  ANALYST  // can view all data, cannot change settings
-  VIEWER   // read-only access to dashboard
+  OWNER // full access — can manage team, clients, billing
+  ADMIN // can manage clients and GA4 connections
+  ANALYST // can view all data, cannot change settings
+  VIEWER // read-only access to dashboard
 }
 
 // ─── Analytics Events (for own tracking, separate from GA4) ──────────────────
 
 model Session {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   clientId  String
-  sessionId String   @unique
+  sessionId String    @unique
   userId    String?
   device    String?
   browser   String?
@@ -193,14 +194,14 @@ model Session {
   source    String?
   medium    String?
   campaign  String?
-  startedAt DateTime @default(now())
+  startedAt DateTime  @default(now())
   endedAt   DateTime?
   duration  Int?
-  pageViews Int      @default(0)
-  bounced   Boolean  @default(false)
-  converted Boolean  @default(false)
+  pageViews Int       @default(0)
+  bounced   Boolean   @default(false)
+  converted Boolean   @default(false)
 
-  events    AnalyticsEvent[]
+  events AnalyticsEvent[]
 
   @@index([clientId, startedAt])
   @@map("sessions")
@@ -224,15 +225,30 @@ model AnalyticsEvent {
 }
 
 model ProjectApiKey {
-  id        String    @id @default(uuid())
-  clientId  String
-  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       String @id @default(uuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  keyPrefix String    // first 18 chars of raw key — safe to display masked
-  keyHash   String    @unique  // SHA-256 of raw key — used for verification
+  keyPrefix String // first 18 chars of raw key — safe to display masked
+  keyHash   String    @unique // SHA-256 of raw key — used for verification
   createdAt DateTime  @default(now())
   revokedAt DateTime? // null = active; set when rotated or deleted
 
   @@index([clientId])
   @@map("project_api_keys")
+}
+
+model BrevoToken {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+
+  accessToken   String
+  refreshToken  String?
+  expiresAt     DateTime?
+  accountEmail  String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
