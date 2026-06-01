@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
+const TRACKER_BASE_URL = import.meta.env.VITE_TRACKER_BASE_URL || "http://localhost:4000";
 
 const currencies = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "DKK"];
 const timezones = [
@@ -429,7 +430,7 @@ export default function SettingsPage() {
   window.TRACKER_KEY = "${project.activeApiKey?.masked ?? "<your-api-key>"}";
   window.TRACKER_ID  = "${project.trackingId}";
 </script>
-<script src="https://cdn.yourapp.com/tracker.js" defer></script>`}
+<script src="${TRACKER_BASE_URL}/sdk/tracker.js" defer></script>`}
                     </pre>
                   </details>
                 </div>
