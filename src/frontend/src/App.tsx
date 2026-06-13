@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LayoutDashboard, BarChart2, Lightbulb, TrendingUp,
   FileText, Settings, Menu, X, ChevronDown, Bell,
-  Search, CreditCard, LogOut, User,
+  Search, CreditCard, LogOut, User, Users, UserPlus,
+  Moon, Sun, Copy, Check, Shield, ChevronRight,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useAuth } from "./context/AuthContext";
-import ThemeSwitcher from "./components/ThemeSwitcher";
+import { useTheme } from "./context/ThemeContext";
 
 import OverviewPage from "./pages/OverviewPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
@@ -44,6 +45,15 @@ interface Client {
   ga4Credential?: { propertyName: string } | null;
 }
 
+interface ProjectMember {
+  id: string;
+  name: string;
+  email: string;
+  picture?: string;
+  role: "owner" | "member";
+  joinedAt: string;
+}
+
 const navItems: { id: Page; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: "overview",  label: "Overview",    icon: LayoutDashboard },
   { id: "analytics", label: "Analytics",   icon: BarChart2 },
@@ -64,6 +74,447 @@ const dateRangeLabels: Record<DateRange, string> = {
   "90d": "Last 90 days", custom: "Custom range",
 };
 
+// ─── Join Project Modal ────────────────────────────────────────────────────────
+function JoinProjectModal({ onClose }: { onClose: () => void }) {
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function handleJoin() {
+    if (!code.trim()) return;
+    setStatus("loading");
+    try {
+      const res = await fetch(`${AUTH_API}/projects/join`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        },
+        body: JSON.stringify({ code: code.trim().toUpperCase() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Invalid invite code");
+      }
+      setStatus("success");
+      setTimeout(onClose, 1500);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to join project");
+      setStatus("error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-xl shadow-lg w-full max-w-sm mx-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Join a Project</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Enter the invite code shared by your team</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => { setCode(e.target.value.toUpperCase()); setStatus("idle"); }}
+            placeholder="e.g. GRW-X7K2"
+            maxLength={12}
+            className="w-full px-3.5 py-2.5 bg-muted border border-border rounded-lg text-sm font-mono font-semibold text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-muted-foreground outline-none focus:border-primary/60 transition-colors tracking-widest"
+            onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+          />
+
+          {status === "error" && (
+            <p className="text-xs text-destructive font-medium">{errorMsg}</p>
+          )}
+          {status === "success" && (
+            <p className="text-xs text-green-600 font-medium flex items-center gap-1.5">
+              <Check className="w-3.5 h-3.5" /> Joined successfully!
+            </p>
+          )}
+
+          <Button
+            className="w-full h-9 text-sm"
+            onClick={handleJoin}
+            disabled={status === "loading" || status === "success" || !code.trim()}
+          >
+            {status === "loading" ? "Joining…" : status === "success" ? "Joined!" : "Join Project"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Invite Members Modal ──────────────────────────────────────────────────────
+function InviteMembersModal({
+  onClose,
+  userRole,
+}: {
+  onClose: () => void;
+  userRole: "owner" | "member";
+}) {
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [loadingCode, setLoadingCode] = useState(false);
+
+  useEffect(() => {
+    // Fetch current members
+    fetch(`${AUTH_API}/projects/members`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    })
+      .then((r) => r.json())
+      .then((data) => setMembers(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  async function generateCode() {
+    setLoadingCode(true);
+    try {
+      const res = await fetch(`${AUTH_API}/projects/invite`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+      });
+      const data = await res.json();
+      setInviteCode(data.code);
+    } catch {}
+    setLoadingCode(false);
+  }
+
+  async function removeMember(memberId: string) {
+    await fetch(`${AUTH_API}/projects/members/${memberId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+    }).catch(() => {});
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+  }
+
+  function copyCode() {
+    if (!inviteCode) return;
+    navigator.clipboard.writeText(inviteCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const isOwner = userRole === "owner";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md mx-4 p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Team Members</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {isOwner ? "Manage members and invite new ones" : "View your project team"}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Invite code section — owner only */}
+        {isOwner && (
+          <div className="mb-5 p-3.5 bg-muted rounded-lg border border-border">
+            <p className="text-xs font-semibold text-foreground mb-2">Invite via code</p>
+            {inviteCode ? (
+              <div className="flex items-center gap-2">
+                <span className="flex-1 font-mono text-sm font-bold tracking-widest text-foreground bg-background border border-border rounded-md px-3 py-2">
+                  {inviteCode}
+                </span>
+                <button
+                  type="button"
+                  onClick={copyCode}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={generateCode}
+                disabled={loadingCode}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {loadingCode ? "Generating…" : "Generate invite code"}
+              </button>
+            )}
+            <p className="text-[10px] text-muted-foreground mt-2">
+              Anyone with this code can join as a member. Codes expire after 7 days.
+            </p>
+          </div>
+        )}
+
+        {/* Members list */}
+        <div className="space-y-1 max-h-60 overflow-y-auto scrollbar-thin">
+          {members.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-6">No members yet</p>
+          ) : (
+            members.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-muted transition-colors">
+                <Avatar className="w-7 h-7 shrink-0">
+                  {m.picture && <AvatarImage src={m.picture} />}
+                  <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                    {m.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">{m.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{m.email}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    m.role === "owner"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-muted-foreground/10 text-muted-foreground"
+                  }`}>
+                    {m.role === "owner" && <Shield className="w-2.5 h-2.5" />}
+                    {m.role}
+                  </span>
+                  {isOwner && m.role !== "owner" && (
+                    <button
+                      type="button"
+                      onClick={() => removeMember(m.id)}
+                      className="text-[10px] text-destructive hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar User Popover ──────────────────────────────────────────────────────
+function SidebarUserPopover({
+  user,
+  initials,
+  clients,
+  activeClientId,
+  onClientChange,
+  onNavigate,
+  onSignOut,
+  onJoinProject,
+  onManageTeam,
+}: {
+  user: any;
+  initials: string;
+  clients: Client[];
+  activeClientId: string;
+  onClientChange: (id: string) => void;
+  onNavigate: (page: Page) => void;
+  onSignOut: () => void;
+  onJoinProject: () => void;
+  onManageTeam: () => void;
+}) {
+  const { theme, mode, setTheme, toggleMode } = useTheme();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const isOwner = user?.role?.toLowerCase() === "owner" || user?.role?.toLowerCase() === "admin";
+
+  return (
+    <div ref={ref} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-3 p-1.5 rounded-lg hover:bg-muted transition-colors group"
+        aria-label="User menu"
+      >
+        <Avatar className="w-8 h-8 shrink-0">
+          {user?.picture && <AvatarImage src={user.picture} />}
+          <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-col lg:flex md:hidden flex overflow-hidden flex-1 min-w-0">
+          <span className="text-xs font-semibold text-foreground truncate text-left">{user?.name}</span>
+          <span className="text-[10px] text-muted-foreground truncate text-left capitalize">{user?.role?.toLowerCase()}</span>
+        </div>
+        <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform lg:block md:hidden block ${open ? "rotate-90" : ""}`} />
+      </button>
+
+      {/* Popover panel */}
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 w-72 bg-card border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+
+          {/* User identity header */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+            <Avatar className="w-9 h-9 shrink-0">
+              {user?.picture && <AvatarImage src={user.picture} />}
+              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{user?.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+            </div>
+            {isOwner && (
+              <span className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                <Shield className="w-2.5 h-2.5" /> Owner
+              </span>
+            )}
+          </div>
+
+          {/* Team section */}
+          <div className="px-4 py-3 border-b border-border space-y-1">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Team</p>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => { onManageTeam(); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                Manage Team Members
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => { onJoinProject(); setOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />
+              Join a Project
+            </button>
+            {!isOwner && (
+              <button
+                type="button"
+                onClick={() => { onManageTeam(); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+              >
+                <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                View Team
+              </button>
+            )}
+          </div>
+
+          {/* Client selector */}
+          {clients.length > 0 && (
+            <div className="px-4 py-3 border-b border-border">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Active Client</p>
+              <select
+                value={activeClientId}
+                onChange={(e) => { onClientChange(e.target.value); setOpen(false); }}
+                className="w-full text-xs font-medium text-foreground bg-muted rounded-lg px-2.5 py-2 outline-none cursor-pointer border border-border hover:border-primary/40 transition-colors"
+              >
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Theme section */}
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2.5">Appearance</p>
+
+            {/* Color theme */}
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <button
+                type="button"
+                onClick={() => setTheme("teal")}
+                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${
+                  theme === "teal"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-3 h-3 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
+                Teal
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("indigo")}
+                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${
+                  theme === "indigo"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-3 h-3 rounded-full bg-[oklch(0.511_0.22_264)] shrink-0" />
+                Indigo
+              </button>
+            </div>
+
+            {/* Light / dark */}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg bg-muted hover:bg-muted/80 transition-colors"
+            >
+              <span className="text-xs font-medium text-foreground">
+                {mode === "light" ? "Light mode" : "Dark mode"}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Switch to {mode === "light" ? "dark" : "light"}</span>
+                {mode === "light" ? <Moon className="w-3.5 h-3.5 text-muted-foreground" /> : <Sun className="w-3.5 h-3.5 text-muted-foreground" />}
+              </div>
+            </button>
+          </div>
+
+          {/* Account actions */}
+          <div className="px-4 py-2">
+            <button
+              type="button"
+              onClick={() => { onNavigate("settings"); setOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <User className="w-3.5 h-3.5 text-muted-foreground" />
+              Profile & Settings
+            </button>
+            <button
+              type="button"
+              onClick={() => { onNavigate("subscription"); setOpen(false); }}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-muted-foreground" />
+              Subscription
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { isAuthenticated, isLoading, user, signOut } = useAuth();
   const [authPage, setAuthPage] = useState<"signin" | "signup">("signin");
@@ -71,6 +522,10 @@ export default function App() {
   const [activePage, setActivePage] = useState<Page>("overview");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Modals
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
 
   // ── Analytics data state ──
   const [trafficAnalysis, setTrafficAnalysis] = useState<any[]>([]);
@@ -102,7 +557,6 @@ export default function App() {
         if (!data || !Array.isArray(data)) return;
         setClients(data);
 
-        // Auto-select first client if none already stored
         if (data.length > 0 && !getActiveClient()) {
           setActiveClient(data[0].id);
           setActiveClientIdState(data[0].id);
@@ -111,22 +565,18 @@ export default function App() {
       .catch(() => {});
   }, [isAuthenticated]);
 
-  // ── Switch client ──
   function handleClientChange(clientId: string) {
     setActiveClient(clientId);
     setActiveClientIdState(clientId);
-    // Re-fetch all data for the newly selected client
     refreshAllData(dateRange);
   }
 
-  // ── Navigate to subscription from FeatureGate ──
   useEffect(() => {
     const handler = () => setActivePage("subscription");
     window.addEventListener("navigate-to-subscription", handler);
     return () => window.removeEventListener("navigate-to-subscription", handler);
   }, []);
 
-  // ── Data fetchers ──
   async function fetchOverviewData(period: DateRange) {
     try { await fetchDashboardData(period); } catch {}
   }
@@ -214,7 +664,6 @@ export default function App() {
     } catch {}
   }
 
-  // ── Runs all fetchers — called on period change or client switch ──
   function refreshAllData(period: DateRange) {
     fetchOverviewData(period);
     loadTrafficAnalysis(period);
@@ -255,7 +704,6 @@ export default function App() {
     );
   }
 
-  // ── Auth screens ──
   if (!isAuthenticated) {
     return authPage === "signin" ? (
       <SignInPage onSignIn={() => {}} onGoToSignUp={() => setAuthPage("signup")} />
@@ -265,14 +713,27 @@ export default function App() {
   }
 
   const initials = user?.name
-    ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    ? user.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)
     : "U";
 
   const activeClient = clients.find((c) => c.id === activeClientId);
+  const userRole: "owner" | "member" =
+    user?.role?.toLowerCase() === "owner" || user?.role?.toLowerCase() === "admin"
+      ? "owner"
+      : "member";
 
   // ── Dashboard ──
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      {/* Modals */}
+      {showJoinModal && <JoinProjectModal onClose={() => setShowJoinModal(false)} />}
+      {showTeamModal && (
+        <InviteMembersModal
+          onClose={() => setShowTeamModal(false)}
+          userRole={userRole}
+        />
+      )}
+
       {sidebarOpen && (
         <button
           type="button"
@@ -307,43 +768,6 @@ export default function App() {
             <X className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Client selector in sidebar */}
-        {clients.length > 0 && (
-          <div className="px-3 py-2.5 border-b border-border lg:block md:hidden block">
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 px-1">
-              Active Client
-            </p>
-            <select
-              value={activeClientId}
-              onChange={(e) => handleClientChange(e.target.value)}
-              className="w-full text-xs font-medium text-foreground bg-muted rounded-lg px-2.5 py-2 outline-none cursor-pointer border border-border hover:border-primary/40 transition-colors"
-            >
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            {activeClient?.ga4Credential && (
-              <p className="text-[10px] text-green-600 font-medium mt-1 px-1">
-                ✓ GA4 connected — {activeClient.ga4Credential.propertyName}
-              </p>
-            )}
-            {activeClient && !activeClient.ga4Credential && (
-              <p className="text-[10px] text-muted-foreground mt-1 px-1">
-                GA4 not connected —{" "}
-                <button
-                  type="button"
-                  className="text-primary underline"
-                  onClick={() => { setActivePage("settings"); setSidebarOpen(false); }}
-                >
-                  Connect
-                </button>
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Plan badge */}
         {user?.subscription && (
@@ -391,26 +815,25 @@ export default function App() {
           })}
         </nav>
 
-        {/* Bottom user */}
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3">
-            <Avatar className="w-8 h-8 shrink-0">
-              {user?.picture && <AvatarImage src={user.picture} />}
-              <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-col lg:flex md:hidden flex overflow-hidden">
-              <span className="text-xs font-semibold text-foreground truncate">{user?.name}</span>
-              <span className="text-xs text-muted-foreground truncate">{user?.role?.toLowerCase()}</span>
-            </div>
-          </div>
+        {/* Bottom user section — now clickable to open popover */}
+        <div className="p-3 border-t border-border">
+          <SidebarUserPopover
+            user={user}
+            initials={initials}
+            clients={clients}
+            activeClientId={activeClientId}
+            onClientChange={handleClientChange}
+            onNavigate={(page) => { setActivePage(page); setSidebarOpen(false); }}
+            onSignOut={signOut}
+            onJoinProject={() => setShowJoinModal(true)}
+            onManageTeam={() => setShowTeamModal(true)}
+          />
         </div>
       </aside>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Navbar */}
+        {/* Navbar — cleaner, Client/Theme removed */}
         <header className="shrink-0 flex items-center gap-4 px-6 py-4 bg-card border-b border-border shadow-xs">
           <button
             type="button"
@@ -423,7 +846,6 @@ export default function App() {
 
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-foreground truncate">{pageTitles[activePage]}</h1>
-            {/* Show active client name below page title */}
             {activeClient ? (
               <p className="text-xs text-muted-foreground hidden sm:block truncate">
                 {activeClient.name}
@@ -439,24 +861,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Client switcher in navbar (compact, for md+ screens) */}
-            {clients.length > 1 && (
-              <div className="hidden md:flex items-center gap-1.5 bg-muted px-2.5 py-1.5 rounded-lg">
-                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Client
-                </span>
-                <select
-                  value={activeClientId}
-                  onChange={(e) => handleClientChange(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-foreground outline-none cursor-pointer max-w-32 truncate"
-                >
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* No clients yet — prompt to add one */}
             {clients.length === 0 && isAuthenticated && (
               <button
@@ -467,11 +871,6 @@ export default function App() {
                 + Add client
               </button>
             )}
-
-            {/* Theme switcher */}
-            <div className="hidden sm:flex">
-              <ThemeSwitcher />
-            </div>
 
             {/* Search */}
             <button type="button" className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">
@@ -505,39 +904,6 @@ export default function App() {
               <Bell className="w-4 h-4" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full" />
             </button>
-
-            {/* User menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg hover:bg-muted px-2 py-1.5 transition-colors">
-                  <Avatar className="w-7 h-7">
-                    {user?.picture && <AvatarImage src={user.picture} />}
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="hidden md:flex flex-col text-left">
-                    <span className="text-xs font-semibold text-foreground leading-none">{user?.name}</span>
-                    <span className="text-xs text-muted-foreground capitalize">
-                      {user?.subscription?.plan?.displayName || "Free"} plan
-                    </span>
-                  </div>
-                  <ChevronDown className="w-3 h-3 text-muted-foreground hidden md:block" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem onClick={() => setActivePage("settings")}>
-                  <User className="w-3.5 h-3.5 mr-2" /> Profile & Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActivePage("subscription")}>
-                  <CreditCard className="w-3.5 h-3.5 mr-2" /> Subscription
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive">
-                  <LogOut className="w-3.5 h-3.5 mr-2" /> Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </header>
 
