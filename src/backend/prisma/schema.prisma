@@ -8,85 +8,247 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Users ────────────────────────────────────────────────────────────────────
-
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String
-  passwordHash String?
-  googleId     String?  @unique
-  picture      String?
-  role         Role     @default(USER)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  subscription  Subscription?
-  clients       Client[]
-  refreshTokens RefreshToken[]
-  brevoToken    BrevoToken?
-
-  // Team memberships (user can belong to multiple teams)
-  ownedTeams  Team[]       @relation("TeamOwner")
-  teamMembers TeamMember[]
+  id                    String          @id @default(uuid())
+  email                 String          @unique
+  name                  String
+  passwordHash          String?
+  googleId              String?         @unique
+  picture               String?
+  role                  Role            @default(USER)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  brevoToken            BrevoToken?
+  clients               Client[]
+  createdProjectInvites ProjectInvite[] @relation("ProjectInviteCreator")
+  projectMemberships    ProjectMember[]
+  ownedProjects         Project[]
+  refreshTokens         RefreshToken[]
+  subscription          Subscription?
+  teamMembers           TeamMember[]
+  ownedTeams            Team[]          @relation("TeamOwner")
 
   @@map("users")
 }
-
-enum Role {
-  USER
-  ADMIN
-}
-
-// ─── Refresh Tokens ───────────────────────────────────────────────────────────
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
 }
 
-// ─── Plans & Subscriptions ────────────────────────────────────────────────────
-
 model Plan {
-  id           String   @id @default(uuid())
-  name         String   @unique
-  displayName  String
-  priceMonthly Float
-  priceYearly  Float
-  features     Json
-  limits       Json
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-
+  id            String         @id @default(uuid())
+  name          String         @unique
+  displayName   String
+  priceMonthly  Float
+  priceYearly   Float
+  features      Json
+  limits        Json
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
   subscriptions Subscription[]
 
   @@map("plans")
 }
 
 model Subscription {
-  id                 String             @id @default(uuid())
-  userId             String             @unique
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String                @id @default(uuid())
+  userId             String                @unique
   planId             String
-  plan               Plan               @relation(fields: [planId], references: [id])
-  status             SubscriptionStatus @default(ACTIVE)
-  billingCycle       BillingCycle       @default(MONTHLY)
+  status             SubscriptionStatus    @default(ACTIVE)
+  billingCycle       BillingCycle          @default(MONTHLY)
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean            @default(false)
+  cancelAtPeriodEnd  Boolean               @default(false)
   trialEndsAt        DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-
-  history SubscriptionHistory[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  history            SubscriptionHistory[]
+  plan               Plan                  @relation(fields: [planId], references: [id])
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
+}
+
+model SubscriptionHistory {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  action         String
+  fromPlanId     String?
+  toPlanId       String?
+  note           String?
+  createdAt      DateTime     @default(now())
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("subscription_history")
+}
+
+model Client {
+  id         String     @id @default(uuid())
+  userId     String
+  teamId     String?
+  name       String
+  domain     String
+  industry   String?
+  platform   String?
+  trackingId String     @unique @default(uuid())
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  team       Team?      @relation(fields: [teamId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects   Project[]
+
+  @@map("clients")
+}
+
+model ProjectMember {
+  id        String              @id @default(uuid())
+  projectId String
+  userId    String
+  role      project_member_role @default(MEMBER)
+  joinedAt  DateTime            @default(now()) @db.Timestamp(6)
+  project   Project             @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_members_projectid_fkey")
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_members_userid_fkey")
+
+  @@unique([projectId, userId], map: "project_members_project_user_unique")
+  @@index([projectId], map: "project_members_project_idx")
+  @@index([userId], map: "project_members_user_idx")
+  @@map("project_members")
+}
+
+model ProjectInvite {
+  id        String    @id @default(uuid())
+  projectId String
+  code      String    @unique
+  createdBy String
+  createdAt DateTime  @default(now()) @db.Timestamp(6)
+  expiresAt DateTime? @db.Timestamp(6)
+  revokedAt DateTime? @db.Timestamp(6)
+  creator   User      @relation("ProjectInviteCreator", fields: [createdBy], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_invites_createdby_fkey")
+  projects  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "project_invites_projectid_fkey")
+
+  @@map("project_invites")
+}
+
+model Team {
+  id        String       @id @default(uuid())
+  name      String
+  ownerId   String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  clients   Client[]
+  members   TeamMember[]
+  owner     User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  role     TeamRole @default(VIEWER)
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+model Session {
+  id        String           @id @default(uuid())
+  clientId  String
+  sessionId String           @unique
+  userId    String?
+  device    String?
+  browser   String?
+  os        String?
+  country   String?
+  city      String?
+  source    String?
+  medium    String?
+  campaign  String?
+  startedAt DateTime         @default(now())
+  endedAt   DateTime?
+  duration  Int?
+  pageViews Int              @default(0)
+  bounced   Boolean          @default(false)
+  converted Boolean          @default(false)
+  events    AnalyticsEvent[]
+
+  @@index([clientId, startedAt])
+  @@map("sessions")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  clientId   String
+  sessionId  String?
+  eventType  String
+  page       String?
+  properties Json?
+  revenue    Float?
+  currency   String?
+  userId     String?
+  occurredAt DateTime @default(now())
+  session    Session? @relation(fields: [sessionId], references: [id])
+
+  @@index([clientId, eventType, occurredAt])
+  @@map("analytics_events")
+}
+
+model ProjectApiKey {
+  projectId String    @id
+  keyPrefix String
+  keyHash   String    @unique
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+  projects  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, map: "project_api_keys_project_id_fkey")
+
+  @@map("project_api_keys")
+}
+
+model BrevoToken {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  accountEmail String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id               String          @id
+  name             String
+  created_at       DateTime        @default(now()) @db.Timestamp(6)
+  owner_profile_id String?
+  mailing_enabled  Boolean         @default(true)
+  clientid         String
+  apiKeys          ProjectApiKey?
+  invites          ProjectInvite[]
+  members          ProjectMember[]
+  client           Client          @relation(fields: [clientid], references: [id], onDelete: Cascade, map: "projects_client_id_fkey")
+  owner            User?           @relation(fields: [owner_profile_id], references: [id])
+  
+  @@index([clientid], map: "projects_client_id_idx")
+  @@index([owner_profile_id])
+  @@map("projects")
+}
+
+enum Role {
+  USER
+  ADMIN
 }
 
 enum SubscriptionStatus {
@@ -102,153 +264,14 @@ enum BillingCycle {
   YEARLY
 }
 
-model SubscriptionHistory {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  action         String
-  fromPlanId     String?
-  toPlanId       String?
-  note           String?
-  createdAt      DateTime     @default(now())
-
-  @@map("subscription_history")
-}
-
-// ─── Clients ──────────────────────────────────────────────────────────────────
-
-model Client {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Team that owns this client (optional — for future team feature)
-  teamId String?
-  team   Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
-
-  name           String
-  domain         String
-  industry       String?
-  platform       String?
-  trackingId     String          @unique @default(uuid())
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  projectApiKeys ProjectApiKey[]
-
-  @@map("clients")
-}
-
-// ─── Teams (stub — for future multi-member team feature) ─────────────────────
-// Structure is ready, feature not yet active.
-// A team is owned by a user (account owner) and can have multiple members
-// with different roles. Clients can be assigned to a team so all team
-// members can access them.
-
-model Team {
-  id        String   @id @default(uuid())
-  name      String
-  ownerId   String
-  owner     User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  members TeamMember[]
-  clients Client[]
-
-  @@map("teams")
-}
-
-model TeamMember {
-  id       String   @id @default(uuid())
-  teamId   String
-  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  userId   String
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role     TeamRole @default(VIEWER)
-  joinedAt DateTime @default(now())
-
-  @@unique([teamId, userId])
-  @@map("team_members")
-}
-
 enum TeamRole {
-  OWNER // full access — can manage team, clients, billing
-  ADMIN // can manage clients and GA4 connections
-  ANALYST // can view all data, cannot change settings
-  VIEWER // read-only access to dashboard
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
 }
 
-// ─── Analytics Events (for own tracking, separate from GA4) ──────────────────
-
-model Session {
-  id        String    @id @default(uuid())
-  clientId  String
-  sessionId String    @unique
-  userId    String?
-  device    String?
-  browser   String?
-  os        String?
-  country   String?
-  city      String?
-  source    String?
-  medium    String?
-  campaign  String?
-  startedAt DateTime  @default(now())
-  endedAt   DateTime?
-  duration  Int?
-  pageViews Int       @default(0)
-  bounced   Boolean   @default(false)
-  converted Boolean   @default(false)
-
-  events AnalyticsEvent[]
-
-  @@index([clientId, startedAt])
-  @@map("sessions")
-}
-
-model AnalyticsEvent {
-  id         String   @id @default(uuid())
-  clientId   String
-  sessionId  String?
-  session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  eventType  String
-  page       String?
-  properties Json?
-  revenue    Float?
-  currency   String?
-  userId     String?
-  occurredAt DateTime @default(now())
-
-  @@index([clientId, eventType, occurredAt])
-  @@map("analytics_events")
-}
-
-model ProjectApiKey {
-  id       String @id @default(uuid())
-  clientId String
-  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  keyPrefix String // first 18 chars of raw key — safe to display masked
-  keyHash   String    @unique // SHA-256 of raw key — used for verification
-  createdAt DateTime  @default(now())
-  revokedAt DateTime? // null = active; set when rotated or deleted
-
-  @@index([clientId])
-  @@map("project_api_keys")
-}
-
-model BrevoToken {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-
-  accessToken   String
-  refreshToken  String?
-  expiresAt     DateTime?
-  accountEmail  String?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+enum project_member_role {
+  OWNER
+  MEMBER
 }

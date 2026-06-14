@@ -7,10 +7,25 @@ import prisma from "../db/prisma";
 export async function getClients(req: AuthRequest, res: Response): Promise<void> {
   try {
     const clients = await prisma.client.findMany({
-      where: { userId: req.user!.userId },
+      where: {
+        OR: [
+          { userId: req.user!.userId },
+          { projectMembers: { some: { userId: req.user!.userId } } },
+        ],
+      },
       orderBy: { createdAt: "desc" },
+      include: {
+        projectMembers: {
+          where: { userId: req.user!.userId },
+          take: 1,
+        },
+      },
     });
-    res.json(clients);
+
+    res.json(clients.map((client: any) => ({
+      ...client,
+      role: client.projectMembers?.[0]?.role?.toLowerCase?.() || "owner",
+    })));
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -22,13 +37,28 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
   const { id } = req.params;
   try {
     const client = await prisma.client.findFirst({
-      where: { id, userId: req.user!.userId },
+      where: {
+        id,
+        OR: [
+          { userId: req.user!.userId },
+          { projectMembers: { some: { userId: req.user!.userId } } },
+        ],
+      },
+      include: {
+        projectMembers: {
+          where: { userId: req.user!.userId },
+          take: 1,
+        },
+      },
     });
     if (!client) {
       res.status(404).json({ error: "Client not found" });
       return;
     }
-    res.json(client);
+    res.json({
+      ...client,
+      role: (client as any).projectMembers?.[0]?.role?.toLowerCase?.() || "owner",
+    });
   } catch {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -68,17 +98,29 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
       }
     }
 
-    const client = await prisma.client.create({
-      data: {
-        userId: req.user!.userId,
-        name,
-        domain,
-        industry,
-        platform,
-      },
+    const client = await prisma.$transaction(async (tx) => {
+      const created = await tx.client.create({
+        data: {
+          userId: req.user!.userId,
+          name,
+          domain,
+          industry,
+          platform,
+        },
+      });
+
+      await tx.projectMember.create({
+        data: {
+          clientId: created.id,
+          userId: req.user!.userId,
+          role: "OWNER",
+        },
+      });
+
+      return created;
     });
 
-    res.status(201).json(client);
+    res.status(201).json({ ...client, role: "owner" });
   } catch (err) {
     console.error("createClient error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -93,7 +135,13 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
 
   try {
     const existing = await prisma.client.findFirst({
-      where: { id, userId: req.user!.userId },
+      where: {
+        id,
+        OR: [
+          { userId: req.user!.userId },
+          { projectMembers: { some: { userId: req.user!.userId, role: "OWNER" } } },
+        ],
+      },
     });
 
     if (!existing) {
@@ -119,7 +167,13 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
 
   try {
     const existing = await prisma.client.findFirst({
-      where: { id, userId: req.user!.userId },
+      where: {
+        id,
+        OR: [
+          { userId: req.user!.userId },
+          { projectMembers: { some: { userId: req.user!.userId, role: "OWNER" } } },
+        ],
+      },
     });
 
     if (!existing) {

@@ -426,11 +426,12 @@ export default function SettingsPage() {
                       View SDK snippet
                     </summary>
                     <pre className="mt-2 overflow-x-auto rounded-lg bg-slate-950 px-4 py-3 font-mono text-xs leading-relaxed text-cyan-100">
-{`<script>
-  window.TRACKER_KEY = "${project.activeApiKey?.masked ?? "<your-api-key>"}";
-  window.TRACKER_ID  = "${project.trackingId}";
-</script>
-<script src="${TRACKER_BASE_URL}/sdk/tracker.js" defer></script>`}
+                      {`<script>
+                          window.TRACKER_KEY = "${project.activeApiKey?.masked ?? "<your-api-key>"}";
+                          window.TRACKER_ID  = "${project.trackingId}";
+                        </script>
+                        <script src="${TRACKER_BASE_URL}/sdk/tracker.js" defer>
+                      </script>`}
                     </pre>
                   </details>
                 </div>
@@ -502,14 +503,14 @@ export default function SettingsPage() {
 
       <footer className="pt-4 pb-2 text-center">
         <p className="text-xs text-muted-foreground">
-          © 2026. Built with ❤️ using{" "}
+          © 2026.
           <a
-            href="https://caffeine.ai"
+            href="#"
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary hover:underline"
           >
-            caffeine.ai
+            Aropath
           </a>
         </p>
       </footer>

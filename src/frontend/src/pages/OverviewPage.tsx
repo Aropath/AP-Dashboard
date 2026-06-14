@@ -522,9 +522,9 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
       {/* Footer */}
       <footer className="pt-4 pb-2 text-center">
         <p className="text-xs text-muted-foreground">
-          © 2026. Built with ❤️ using{" "}
-          <a href="https://caffeine.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            caffeine.ai
+          © 2026.
+          <a href="#" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+            Aropath
           </a>
         </p>
       </footer>

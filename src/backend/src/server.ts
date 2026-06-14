@@ -32,7 +32,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/clients", clientRoutes);
 // app.use("/api/brevo", brevoRoutes);        // ← Brevo API routes
-app.use("/api/sdk/projects", projectRoutes);   // ← Project API Management routes
+app.use("/api/sdk/projects", projectRoutes);   // ← Project API Management routes used by Settings page
+app.use("/api/projects", projectRoutes);       // ← Team/join routes used by App.tsx user popover
 
 app.use((_req, res) => res.status(404).json({ error: "Route not found" }));
 
