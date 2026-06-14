@@ -1,6 +1,18 @@
 import { Response } from "express";
+import { randomUUID } from "crypto";
 import { AuthRequest } from "../middleware/auth";
 import prisma from "../db/prisma";
+
+function clientRole(client: any): "owner" | "member" {
+  const project = client.projects?.[0];
+  const membership = project?.members?.[0];
+
+  if (client.userId && project?.owner_profile_id && client.userId === project.owner_profile_id) {
+    return "owner";
+  }
+
+  return membership?.role?.toLowerCase?.() === "owner" ? "owner" : "member";
+}
 
 // ─── List clients ─────────────────────────────────────────────────────────────
 
@@ -10,23 +22,38 @@ export async function getClients(req: AuthRequest, res: Response): Promise<void>
       where: {
         OR: [
           { userId: req.user!.userId },
-          { projectMembers: { some: { userId: req.user!.userId } } },
+          { projects: { some: { owner_profile_id: req.user!.userId } } },
+          { projects: { some: { members: { some: { userId: req.user!.userId } } } } },
         ],
       },
       orderBy: { createdAt: "desc" },
       include: {
-        projectMembers: {
-          where: { userId: req.user!.userId },
+        projects: {
+          where: {
+            OR: [
+              { owner_profile_id: req.user!.userId },
+              { members: { some: { userId: req.user!.userId } } },
+            ],
+          },
+          orderBy: { created_at: "desc" },
           take: 1,
+          include: {
+            members: {
+              where: { userId: req.user!.userId },
+              take: 1,
+            },
+          },
         },
       },
     });
 
     res.json(clients.map((client: any) => ({
       ...client,
-      role: client.projectMembers?.[0]?.role?.toLowerCase?.() || "owner",
+      activeProjectId: client.projects?.[0]?.id ?? null,
+      role: client.userId === req.user!.userId ? "owner" : clientRole(client),
     })));
-  } catch {
+  } catch (err) {
+    console.error("getClients error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -41,25 +68,42 @@ export async function getClient(req: AuthRequest, res: Response): Promise<void> 
         id,
         OR: [
           { userId: req.user!.userId },
-          { projectMembers: { some: { userId: req.user!.userId } } },
+          { projects: { some: { owner_profile_id: req.user!.userId } } },
+          { projects: { some: { members: { some: { userId: req.user!.userId } } } } },
         ],
       },
       include: {
-        projectMembers: {
-          where: { userId: req.user!.userId },
+        projects: {
+          where: {
+            OR: [
+              { owner_profile_id: req.user!.userId },
+              { members: { some: { userId: req.user!.userId } } },
+            ],
+          },
+          orderBy: { created_at: "desc" },
           take: 1,
+          include: {
+            members: {
+              where: { userId: req.user!.userId },
+              take: 1,
+            },
+          },
         },
       },
     });
+
     if (!client) {
       res.status(404).json({ error: "Client not found" });
       return;
     }
+
     res.json({
       ...client,
-      role: (client as any).projectMembers?.[0]?.role?.toLowerCase?.() || "owner",
+      activeProjectId: (client as any).projects?.[0]?.id ?? null,
+      role: client.userId === req.user!.userId ? "owner" : clientRole(client),
     });
-  } catch {
+  } catch (err) {
+    console.error("getClient error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -98,8 +142,8 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
       }
     }
 
-    const client = await prisma.$transaction(async (tx) => {
-      const created = await tx.client.create({
+    const result = await prisma.$transaction(async (tx) => {
+      const client = await tx.client.create({
         data: {
           userId: req.user!.userId,
           name,
@@ -109,18 +153,31 @@ export async function createClient(req: AuthRequest, res: Response): Promise<voi
         },
       });
 
-      await tx.projectMember.create({
+      const project = await tx.project.create({
         data: {
-          clientId: created.id,
+          id: randomUUID(),
+          name,
+          clientid: client.id,
+          owner_profile_id: req.user!.userId,
+        },
+      });
+
+      const member = await tx.projectMember.create({
+        data: {
+          projectId: project.id,
           userId: req.user!.userId,
           role: "OWNER",
         },
       });
 
-      return created;
+      return { client, project, member };
     });
 
-    res.status(201).json({ ...client, role: "owner" });
+    res.status(201).json({
+      ...result.client,
+      activeProjectId: result.project.id,
+      role: result.member.role.toLowerCase(),
+    });
   } catch (err) {
     console.error("createClient error:", err);
     res.status(500).json({ error: "Internal server error" });
@@ -139,7 +196,8 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
         id,
         OR: [
           { userId: req.user!.userId },
-          { projectMembers: { some: { userId: req.user!.userId, role: "OWNER" } } },
+          { projects: { some: { owner_profile_id: req.user!.userId } } },
+          { projects: { some: { members: { some: { userId: req.user!.userId, role: "OWNER" } } } } },
         ],
       },
     });
@@ -155,7 +213,8 @@ export async function updateClient(req: AuthRequest, res: Response): Promise<voi
     });
 
     res.json(updated);
-  } catch {
+  } catch (err) {
+    console.error("updateClient error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -171,7 +230,8 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
         id,
         OR: [
           { userId: req.user!.userId },
-          { projectMembers: { some: { userId: req.user!.userId, role: "OWNER" } } },
+          { projects: { some: { owner_profile_id: req.user!.userId } } },
+          { projects: { some: { members: { some: { userId: req.user!.userId, role: "OWNER" } } } } },
         ],
       },
     });
@@ -183,7 +243,8 @@ export async function deleteClient(req: AuthRequest, res: Response): Promise<voi
 
     await prisma.client.delete({ where: { id } });
     res.json({ message: "Client deleted successfully" });
-  } catch {
+  } catch (err) {
+    console.error("deleteClient error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 }

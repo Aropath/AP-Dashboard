@@ -38,10 +38,14 @@ const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api
 type Page = "overview" | "analytics" | "insights" | "growth" | "reports" | "settings" | "subscription";
 type DateRange = "today" | "7d" | "30d" | "90d" | "custom";
 
-interface Client {
-  id: string;
+interface Project {
+  id: string;        // app.projects.id
+  clientId: string;  // app.clients.id
   name: string;
   domain: string;
+  trackingId?: string | null;
+  isActive?: boolean;
+  role?: "owner" | "member";
   ga4Credential?: { propertyName: string } | null;
 }
 
@@ -75,7 +79,13 @@ const dateRangeLabels: Record<DateRange, string> = {
 };
 
 // ─── Join Project Modal ────────────────────────────────────────────────────────
-function JoinProjectModal({ onClose }: { onClose: () => void }) {
+function JoinProjectModal({
+  onClose,
+  onJoined,
+}: {
+  onClose: () => void;
+  onJoined?: (project?: Project) => void;
+}) {
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -84,7 +94,7 @@ function JoinProjectModal({ onClose }: { onClose: () => void }) {
     if (!code.trim()) return;
     setStatus("loading");
     try {
-      const res = await fetch(`${AUTH_API}/projects/join`, {
+      const res = await fetch(`${AUTH_API}/sdk/projects/join`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -92,11 +102,12 @@ function JoinProjectModal({ onClose }: { onClose: () => void }) {
         },
         body: JSON.stringify({ code: code.trim().toUpperCase() }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error || "Invalid invite code");
       }
       setStatus("success");
+      onJoined?.(data.project);
       setTimeout(onClose, 1500);
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to join project");
@@ -157,9 +168,13 @@ function JoinProjectModal({ onClose }: { onClose: () => void }) {
 function InviteMembersModal({
   onClose,
   userRole,
+  projectId,
+  onChanged,
 }: {
   onClose: () => void;
   userRole: "owner" | "member";
+  projectId: string;
+  onChanged?: () => void;
 }) {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -167,21 +182,26 @@ function InviteMembersModal({
   const [loadingCode, setLoadingCode] = useState(false);
 
   useEffect(() => {
-    // Fetch current members
-    fetch(`${AUTH_API}/projects/members`, {
+    if (!projectId) return;
+
+    fetch(`${AUTH_API}/sdk/projects/members?projectId=${encodeURIComponent(projectId)}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
     })
       .then((r) => r.json())
       .then((data) => setMembers(Array.isArray(data) ? data : []))
       .catch(() => {});
-  }, []);
+  }, [projectId]);
 
   async function generateCode() {
     setLoadingCode(true);
     try {
-      const res = await fetch(`${AUTH_API}/projects/invite`, {
+      const res = await fetch(`${AUTH_API}/sdk/projects/invite`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        },
+        body: JSON.stringify({ projectId }),
       });
       const data = await res.json();
       setInviteCode(data.code);
@@ -190,11 +210,12 @@ function InviteMembersModal({
   }
 
   async function removeMember(memberId: string) {
-    await fetch(`${AUTH_API}/projects/members/${memberId}`, {
+    await fetch(`${AUTH_API}/sdk/projects/members/${memberId}?projectId=${encodeURIComponent(projectId)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
     }).catch(() => {});
     setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    onChanged?.();
   }
 
   function copyCode() {
@@ -315,16 +336,18 @@ function SidebarUserPopover({
   onSignOut,
   onJoinProject,
   onManageTeam,
+  userRole,
 }: {
   user: any;
   initials: string;
-  clients: Client[];
+  clients: Project[];
   activeClientId: string;
   onClientChange: (id: string) => void;
   onNavigate: (page: Page) => void;
   onSignOut: () => void;
   onJoinProject: () => void;
   onManageTeam: () => void;
+  userRole: "owner" | "member";
 }) {
   const { theme, mode, setTheme, toggleMode } = useTheme();
   const [open, setOpen] = useState(false);
@@ -339,7 +362,7 @@ function SidebarUserPopover({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const isOwner = user?.role?.toLowerCase() === "owner" || user?.role?.toLowerCase() === "admin";
+  const isOwner = userRole === "owner" || user?.role?.toLowerCase() === "admin";
 
   return (
     <div ref={ref} className="relative">
@@ -358,7 +381,7 @@ function SidebarUserPopover({
         </Avatar>
         <div className="flex-col lg:flex md:hidden flex overflow-hidden flex-1 min-w-0">
           <span className="text-xs font-semibold text-foreground truncate text-left">{user?.name}</span>
-          <span className="text-[10px] text-muted-foreground truncate text-left capitalize">{user?.role?.toLowerCase()}</span>
+          <span className="text-[10px] text-muted-foreground truncate text-left capitalize">{userRole}</span>
         </div>
         <ChevronRight className={`w-3.5 h-3.5 text-muted-foreground transition-transform lg:block md:hidden block ${open ? "rotate-90" : ""}`} />
       </button>
@@ -420,7 +443,7 @@ function SidebarUserPopover({
           {/* Client selector */}
           {clients.length > 0 && (
             <div className="px-4 py-3 border-b border-border">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Active Client</p>
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Active Project</p>
               <select
                 value={activeClientId}
                 onChange={(e) => { onClientChange(e.target.value); setOpen(false); }}
@@ -538,31 +561,38 @@ export default function App() {
   const [retentionData, setCohortRetention] = useState<any[]>([]);
 
   // ── Client state ──
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<Project[]>([]);
   const [activeClientId, setActiveClientIdState] = useState<string>(
     () => getActiveClient()
   );
 
-  // ── Load clients on login, auto-select first ──
-  useEffect(() => {
+  // ── Load projects on login, auto-select first ──
+  async function loadProjects() {
     if (!isAuthenticated) return;
 
-    fetch(`${AUTH_API}/clients`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-      },
-    })
-      .then((r) => r.json())
-      .then((data: Client[]) => {
-        if (!data || !Array.isArray(data)) return;
-        setClients(data);
+    try {
+      const res = await fetch(`${AUTH_API}/sdk/projects`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+        },
+      });
+      const data: Project[] = await res.json();
+      if (!data || !Array.isArray(data)) return;
 
-        if (data.length > 0 && !getActiveClient()) {
-          setActiveClient(data[0].id);
-          setActiveClientIdState(data[0].id);
-        }
-      })
-      .catch(() => {});
+      setClients(data);
+
+      const storedProjectId = getActiveClient();
+      const stillExists = storedProjectId && data.some((p) => p.id === storedProjectId);
+
+      if (data.length > 0 && !stillExists) {
+        setActiveClient(data[0].id);
+        setActiveClientIdState(data[0].id);
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    loadProjects();
   }, [isAuthenticated]);
 
   function handleClientChange(clientId: string) {
@@ -718,7 +748,7 @@ export default function App() {
 
   const activeClient = clients.find((c) => c.id === activeClientId);
   const userRole: "owner" | "member" =
-    user?.role?.toLowerCase() === "owner" || user?.role?.toLowerCase() === "admin"
+    activeClient?.role === "owner" || user?.role?.toLowerCase() === "admin"
       ? "owner"
       : "member";
 
@@ -726,11 +756,24 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Modals */}
-      {showJoinModal && <JoinProjectModal onClose={() => setShowJoinModal(false)} />}
+      {showJoinModal && (
+        <JoinProjectModal
+          onClose={() => setShowJoinModal(false)}
+          onJoined={(project) => {
+            if (project?.id) {
+              setActiveClient(project.id);
+              setActiveClientIdState(project.id);
+            }
+            loadProjects();
+          }}
+        />
+      )}
       {showTeamModal && (
         <InviteMembersModal
           onClose={() => setShowTeamModal(false)}
           userRole={userRole}
+          projectId={activeClientId}
+          onChanged={loadProjects}
         />
       )}
 
@@ -827,6 +870,7 @@ export default function App() {
             onSignOut={signOut}
             onJoinProject={() => setShowJoinModal(true)}
             onManageTeam={() => setShowTeamModal(true)}
+            userRole={userRole}
           />
         </div>
       </aside>
@@ -868,7 +912,7 @@ export default function App() {
                 onClick={() => setActivePage("settings")}
                 className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-3 py-1.5 rounded-lg hover:bg-primary/20 transition-colors"
               >
-                + Add client
+                + Add project
               </button>
             )}
 

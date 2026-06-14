@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { randomUUID } from "crypto";
 import { prisma } from "../db/prisma";
 import { generateApiKey, maskApiKey } from "../lib/apiKeys";
 import { requireAuth, AuthRequest } from "../middleware/auth";
@@ -9,21 +10,22 @@ router.use(requireAuth);
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function serializeClient(client: any) {
-  const activeKey = client.projectApiKeys?.[0] ?? null;
-  const currentMember = client.projectMembers?.[0] ?? null;
+function serializeProject(project: any) {
+  const activeKey = project.apiKeys ?? null;
+  const currentMember = project.members?.[0] ?? null;
 
   return {
-    id:           client.id,
-    name:         client.name,
-    domain:       client.domain,
-    trackingId:   client.trackingId,
-    isActive:     client.isActive,
-    createdAt:    client.createdAt,
+    id:           project.id,
+    clientId:     project.clientid,
+    name:         project.name,
+    domain:       project.client?.domain ?? "—",
+    trackingId:   project.client?.trackingId ?? null,
+    isActive:     project.client?.isActive ?? true,
+    createdAt:    project.created_at,
     role:         currentMember?.role?.toLowerCase?.() ?? "owner",
     activeApiKey: activeKey
       ? {
-          id:        activeKey.id,
+          projectId: activeKey.projectId,
           keyPrefix: activeKey.keyPrefix,
           masked:    maskApiKey(activeKey.keyPrefix),
           createdAt: activeKey.createdAt,
@@ -50,71 +52,6 @@ function generateInviteCode(): string {
   return formatInviteCode(code);
 }
 
-async function getAccessibleClient(clientId: string, userId: string) {
-  return prisma.client.findFirst({
-    where: {
-      id: clientId,
-      OR: [
-        { userId },
-        { projectMembers: { some: { userId } } },
-      ],
-    },
-    include: {
-      projectMembers: {
-        where: { userId },
-        take: 1,
-      },
-    },
-  });
-}
-
-async function getOwnedClient(clientId: string, userId: string) {
-  return prisma.client.findFirst({
-    where: {
-      id: clientId,
-      OR: [
-        { userId },
-        { projectMembers: { some: { userId, role: "OWNER" } } },
-      ],
-    },
-  });
-}
-
-async function resolveClientId(req: AuthRequest, ownerOnly = false): Promise<string | null> {
-  const requestedClientId =
-    typeof req.body?.projectId === "string" ? req.body.projectId :
-    typeof req.body?.clientId === "string" ? req.body.clientId :
-    typeof req.query.projectId === "string" ? req.query.projectId :
-    typeof req.query.clientId === "string" ? req.query.clientId :
-    "";
-
-  if (requestedClientId) {
-    const client = ownerOnly
-      ? await getOwnedClient(requestedClientId, req.user!.userId)
-      : await getAccessibleClient(requestedClientId, req.user!.userId);
-    return client?.id ?? null;
-  }
-
-  const client = await prisma.client.findFirst({
-    where: ownerOnly
-      ? {
-          OR: [
-            { userId: req.user!.userId },
-            { projectMembers: { some: { userId: req.user!.userId, role: "OWNER" } } },
-          ],
-        }
-      : {
-          OR: [
-            { userId: req.user!.userId },
-            { projectMembers: { some: { userId: req.user!.userId } } },
-          ],
-        },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return client?.id ?? null;
-}
-
 function serializeMember(member: any) {
   return {
     id: member.user.id,
@@ -126,33 +63,139 @@ function serializeMember(member: any) {
   };
 }
 
+function requestedProjectId(req: AuthRequest): string {
+  return (
+    (typeof req.params?.id === "string" ? req.params.id : "") ||
+    (typeof req.body?.projectId === "string" ? req.body.projectId : "") ||
+    (typeof req.query.projectId === "string" ? req.query.projectId : "") ||
+    ""
+  );
+}
+
+function requestedClientId(req: AuthRequest): string {
+  return (
+    (typeof req.body?.clientId === "string" ? req.body.clientId : "") ||
+    (typeof req.query.clientId === "string" ? req.query.clientId : "") ||
+    ""
+  );
+}
+
+async function getAccessibleProject(projectId: string, userId: string) {
+  return prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { owner_profile_id: userId },
+        { client: { userId } },
+        { members: { some: { userId } } },
+      ],
+    },
+    include: {
+      client: true,
+      apiKeys: true,
+      members: { where: { userId }, take: 1 },
+    },
+  });
+}
+
+async function getOwnedProject(projectId: string, userId: string) {
+  return prisma.project.findFirst({
+    where: {
+      id: projectId,
+      OR: [
+        { owner_profile_id: userId },
+        { client: { userId } },
+        { members: { some: { userId, role: "OWNER" } } },
+      ],
+    },
+    include: {
+      client: true,
+      apiKeys: true,
+      members: { where: { userId }, take: 1 },
+    },
+  });
+}
+
+async function resolveProjectId(req: AuthRequest, ownerOnly = false): Promise<string | null> {
+  const userId = req.user!.userId;
+  const projectId = requestedProjectId(req);
+
+  if (projectId) {
+    const project = ownerOnly
+      ? await getOwnedProject(projectId, userId)
+      : await getAccessibleProject(projectId, userId);
+    return project?.id ?? null;
+  }
+
+  const clientId = requestedClientId(req);
+  if (clientId) {
+    const project = await prisma.project.findFirst({
+      where: {
+        clientid: clientId,
+        OR: ownerOnly
+          ? [
+              { owner_profile_id: userId },
+              { client: { userId } },
+              { members: { some: { userId, role: "OWNER" } } },
+            ]
+          : [
+              { owner_profile_id: userId },
+              { client: { userId } },
+              { members: { some: { userId } } },
+            ],
+      },
+      orderBy: { created_at: "desc" },
+    });
+    return project?.id ?? null;
+  }
+
+  const project = await prisma.project.findFirst({
+    where: ownerOnly
+      ? {
+          OR: [
+            { owner_profile_id: userId },
+            { client: { userId } },
+            { members: { some: { userId, role: "OWNER" } } },
+          ],
+        }
+      : {
+          OR: [
+            { owner_profile_id: userId },
+            { client: { userId } },
+            { members: { some: { userId } } },
+          ],
+        },
+    orderBy: { created_at: "desc" },
+  });
+
+  return project?.id ?? null;
+}
+
 // ─── GET /api/sdk/projects ────────────────────────────────────────────────────
 // List projects the user owns or has joined.
 
 router.get("/", async (req: AuthRequest, res: Response) => {
   try {
-    const clients = await prisma.client.findMany({
+    const projects = await prisma.project.findMany({
       where: {
         OR: [
-          { userId: req.user!.userId },
-          { projectMembers: { some: { userId: req.user!.userId } } },
+          { owner_profile_id: req.user!.userId },
+          { client: { userId: req.user!.userId } },
+          { members: { some: { userId: req.user!.userId } } },
         ],
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { created_at: "desc" },
       include: {
-        projectApiKeys: {
-          where:   { revokedAt: null },
-          orderBy: { createdAt: "desc" },
-          take:    1,
-        },
-        projectMembers: {
+        client: true,
+        apiKeys: true,
+        members: {
           where: { userId: req.user!.userId },
           take: 1,
         },
       },
     });
 
-    return res.json(clients.map(serializeClient));
+    return res.json(projects.map(serializeProject));
   } catch (err: any) {
     console.error("[SDK] Failed to list projects:", err.message);
     return res.status(500).json({ error: "Failed to load projects" });
@@ -160,7 +203,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── POST /api/sdk/projects ───────────────────────────────────────────────────
-// Create a new client/project, first API key, and owner membership row.
+// Create a client, app.projects row, first API key, and owner membership row.
 
 router.post("/", async (req: AuthRequest, res: Response) => {
   const name   = typeof req.body?.name   === "string" ? req.body.name.trim()   : "";
@@ -181,23 +224,33 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         },
       });
 
+      const project = await tx.project.create({
+        data: {
+          id: randomUUID(),
+          name,
+          clientid: client.id,
+          owner_profile_id: req.user!.userId,
+        },
+      });
+
       const [apiKey, member] = await Promise.all([
         tx.projectApiKey.create({
-          data: { clientId: client.id, keyPrefix, keyHash },
+          data: { projectId: project.id, keyPrefix, keyHash },
         }),
         tx.projectMember.create({
-          data: { clientId: client.id, userId: req.user!.userId, role: "OWNER" },
+          data: { projectId: project.id, userId: req.user!.userId, role: "OWNER" },
         }),
       ]);
 
-      return { client, apiKey, member };
+      return { client, project, apiKey, member };
     });
 
     return res.status(201).json({
-      project: serializeClient({
-        ...result.client,
-        projectApiKeys: [result.apiKey],
-        projectMembers: [result.member],
+      project: serializeProject({
+        ...result.project,
+        client: result.client,
+        apiKeys: result.apiKey,
+        members: [result.member],
       }),
       apiKey: rawKey,
     });
@@ -208,12 +261,12 @@ router.post("/", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── POST /api/sdk/projects/invite ────────────────────────────────────────────
-// Owner generates a short invite code for the selected project/client.
+// Owner generates a short invite code for the selected project.
 
 router.post("/invite", async (req: AuthRequest, res: Response) => {
   try {
-    const clientId = await resolveClientId(req, true);
-    if (!clientId) return res.status(404).json({ error: "Project not found or owner access required" });
+    const projectId = await resolveProjectId(req, true);
+    if (!projectId) return res.status(404).json({ error: "Project not found or owner access required" });
 
     let code = generateInviteCode();
     for (let i = 0; i < 5; i += 1) {
@@ -227,7 +280,7 @@ router.post("/invite", async (req: AuthRequest, res: Response) => {
     const invite = await prisma.projectInvite.create({
       data: {
         code,
-        clientId,
+        projectId,
         createdBy: req.user!.userId,
         expiresAt,
       },
@@ -241,7 +294,7 @@ router.post("/invite", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── POST /api/sdk/projects/join ──────────────────────────────────────────────
-// Authenticated user joins a project/client by invite code.
+// Authenticated user joins a project by invite code.
 
 router.post("/join", async (req: AuthRequest, res: Response) => {
   const rawCode = typeof req.body?.code === "string" ? req.body.code : "";
@@ -257,24 +310,25 @@ router.post("/join", async (req: AuthRequest, res: Response) => {
         revokedAt: null,
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
       },
-      include: { client: true },
+      include: { projects: { include: { client: true } } },
     });
 
     if (!invite) return res.status(404).json({ error: "Invalid or expired invite code" });
 
     const member = await prisma.projectMember.upsert({
-      where: { clientId_userId: { clientId: invite.clientId, userId: req.user!.userId } },
+      where: { projectId_userId: { projectId: invite.projectId, userId: req.user!.userId } },
       update: {},
-      create: { clientId: invite.clientId, userId: req.user!.userId, role: "MEMBER" },
+      create: { projectId: invite.projectId, userId: req.user!.userId, role: "MEMBER" },
       include: { user: true },
     });
 
     return res.status(201).json({
       project: {
-        id: invite.client.id,
-        name: invite.client.name,
-        domain: invite.client.domain,
-        trackingId: invite.client.trackingId,
+        id: invite.projects.id,
+        clientId: invite.projects.clientid,
+        name: invite.projects.name,
+        domain: invite.projects.client.domain,
+        trackingId: invite.projects.client.trackingId,
         role: member.role.toLowerCase(),
       },
       member: serializeMember(member),
@@ -286,15 +340,15 @@ router.post("/join", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── GET /api/sdk/projects/members ────────────────────────────────────────────
-// List members for selected project/client. Supports ?projectId= or ?clientId=.
+// List members for selected project. Supports ?projectId= or ?clientId=.
 
 router.get("/members", async (req: AuthRequest, res: Response) => {
   try {
-    const clientId = await resolveClientId(req, false);
-    if (!clientId) return res.status(404).json({ error: "Project not found" });
+    const projectId = await resolveProjectId(req, false);
+    if (!projectId) return res.status(404).json({ error: "Project not found" });
 
     const members = await prisma.projectMember.findMany({
-      where: { clientId },
+      where: { projectId },
       orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
       include: { user: true },
     });
@@ -307,19 +361,19 @@ router.get("/members", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── DELETE /api/sdk/projects/members/:userId ────────────────────────────────
-// Owner removes a member from selected project/client. Supports ?projectId=.
+// Owner removes a member from selected project. Supports ?projectId=.
 
 router.delete("/members/:userId", async (req: AuthRequest, res: Response) => {
   try {
-    const clientId = await resolveClientId(req, true);
-    if (!clientId) return res.status(404).json({ error: "Project not found or owner access required" });
+    const projectId = await resolveProjectId(req, true);
+    if (!projectId) return res.status(404).json({ error: "Project not found or owner access required" });
 
     if (req.params.userId === req.user!.userId) {
       return res.status(400).json({ error: "Owner cannot remove themselves" });
     }
 
     const member = await prisma.projectMember.findUnique({
-      where: { clientId_userId: { clientId, userId: req.params.userId } },
+      where: { projectId_userId: { projectId, userId: req.params.userId } },
     });
 
     if (!member) return res.status(404).json({ error: "Member not found" });
@@ -335,30 +389,24 @@ router.delete("/members/:userId", async (req: AuthRequest, res: Response) => {
 });
 
 // ─── POST /api/sdk/projects/:id/api-key/regenerate ───────────────────────────
-// Owner only.
+// Owner only. :id is project id.
 
 router.post("/:id/api-key/regenerate", async (req: AuthRequest, res: Response) => {
   try {
-    const client = await getOwnedClient(req.params.id, req.user!.userId);
-    if (!client) return res.status(404).json({ error: "Project not found or owner access required" });
+    const project = await getOwnedProject(req.params.id, req.user!.userId);
+    if (!project) return res.status(404).json({ error: "Project not found or owner access required" });
 
     const { rawKey, keyPrefix, keyHash } = generateApiKey();
-    const revokedAt = new Date();
 
-    const apiKey = await prisma.$transaction(async (tx) => {
-      await tx.projectApiKey.updateMany({
-        where: { clientId: client.id, revokedAt: null },
-        data:  { revokedAt },
-      });
-
-      return tx.projectApiKey.create({
-        data: { clientId: client.id, keyPrefix, keyHash },
-      });
+    const apiKey = await prisma.projectApiKey.upsert({
+      where: { projectId: project.id },
+      update: { keyPrefix, keyHash, createdAt: new Date(), revokedAt: null },
+      create: { projectId: project.id, keyPrefix, keyHash },
     });
 
     return res.json({
-      project: serializeClient({ ...client, projectApiKeys: [apiKey], projectMembers: [{ role: "OWNER" }] }),
-      apiKey:  rawKey,
+      project: serializeProject({ ...project, apiKeys: apiKey, members: [{ role: "OWNER" }] }),
+      apiKey: rawKey,
     });
   } catch (err: any) {
     console.error("[SDK] Failed to regenerate API key:", err.message);
@@ -367,14 +415,14 @@ router.post("/:id/api-key/regenerate", async (req: AuthRequest, res: Response) =
 });
 
 // ─── DELETE /api/sdk/projects/:id ────────────────────────────────────────────
-// Owner only.
+// Owner only. :id is project id.
 
 router.delete("/:id", async (req: AuthRequest, res: Response) => {
   try {
-    const client = await getOwnedClient(req.params.id, req.user!.userId);
-    if (!client) return res.status(404).json({ error: "Project not found or owner access required" });
+    const project = await getOwnedProject(req.params.id, req.user!.userId);
+    if (!project) return res.status(404).json({ error: "Project not found or owner access required" });
 
-    await prisma.client.delete({ where: { id: client.id } });
+    await prisma.project.delete({ where: { id: project.id } });
 
     return res.json({ success: true });
   } catch (err: any) {
