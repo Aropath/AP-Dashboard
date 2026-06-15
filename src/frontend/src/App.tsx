@@ -29,7 +29,7 @@ import {
   fetchDashboardData, fetchTrafficAnalysis, fetchTopCountries,
   fetchAcquisitionChannels, fetchPagePerformance,
   fetchProductRevenue, fetchCohortRetention,
-  setActiveClient, getActiveClient,
+  setActiveProject, getActiveProject,
 } from "./services/fetchMetrics";
 import { countryFlags } from "./services/countryFlags";
 
@@ -562,8 +562,8 @@ export default function App() {
 
   // ── Client state ──
   const [clients, setClients] = useState<Project[]>([]);
-  const [activeClientId, setActiveClientIdState] = useState<string>(
-    () => getActiveClient()
+  const [activeClientId, setActiveProjectIdState] = useState<string>(
+    () => getActiveProject()
   );
 
   // ── Load projects on login, auto-select first ──
@@ -581,12 +581,12 @@ export default function App() {
 
       setClients(data);
 
-      const storedProjectId = getActiveClient();
+      const storedProjectId = getActiveProject();
       const stillExists = storedProjectId && data.some((p) => p.id === storedProjectId);
 
       if (data.length > 0 && !stillExists) {
-        setActiveClient(data[0].id);
-        setActiveClientIdState(data[0].id);
+        setActiveProject(data[0].id);
+        setActiveProjectIdState(data[0].id);
       }
     } catch {}
   }
@@ -596,8 +596,8 @@ export default function App() {
   }, [isAuthenticated]);
 
   function handleClientChange(clientId: string) {
-    setActiveClient(clientId);
-    setActiveClientIdState(clientId);
+    setActiveProject(clientId);
+    setActiveProjectIdState(clientId);
     refreshAllData(dateRange);
   }
 
@@ -761,8 +761,8 @@ export default function App() {
           onClose={() => setShowJoinModal(false)}
           onJoined={(project) => {
             if (project?.id) {
-              setActiveClient(project.id);
-              setActiveClientIdState(project.id);
+              setActiveProject(project.id);
+              setActiveProjectIdState(project.id);
             }
             loadProjects();
           }}
@@ -800,7 +800,7 @@ export default function App() {
             <TrendingUp className="w-4 h-4 text-primary-foreground" />
           </div>
           <span className="font-bold text-foreground text-sm tracking-tight lg:block md:hidden block">
-            GrowthAdvisor
+            AroPath
           </span>
           <button
             type="button"

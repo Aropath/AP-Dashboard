@@ -524,7 +524,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <p className="text-xs text-muted-foreground">
           © 2026.
           <a href="#" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-            Aropath
+            Aropath Dashboard
           </a>
         </p>
       </footer>

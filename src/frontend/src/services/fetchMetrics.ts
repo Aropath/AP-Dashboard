@@ -11,17 +11,17 @@ function getToken(): string {
   return localStorage.getItem("access_token") || "";
 }
 
-// Active clientId — set this when user selects a client
-let activeClientId: string =
-  localStorage.getItem("active_client_id") || "";
+// Active projectId — set this when user selects a project
+let activeProjectId: string =
+  localStorage.getItem("active_project_id") || "";
 
-export function setActiveClient(clientId: string) {
-  activeClientId = clientId;
-  localStorage.setItem("active_client_id", clientId);
+export function setActiveProject(projectId: string) {
+  activeProjectId = projectId;
+  localStorage.setItem("active_project_id", projectId);
 }
 
-export function getActiveClient(): string {
-  return activeClientId;
+export function getActiveProject(): string {
+  return activeProjectId;
 }
 
 async function authFetch(url: string) {
@@ -56,40 +56,40 @@ async function authFetch(url: string) {
   return res.json();
 }
 
-function withClient(url: string): string {
-  if (!activeClientId) return url;
+function withProject(url: string): string {
+  if (!activeProjectId) return url;
 
   const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}clientId=${activeClientId}`;
+  return `${url}${sep}projectId=${activeProjectId}`;
 }
 
 // ─── Analytics (temporarily disabled-safe) ────────────────────────────────
 
 export async function fetchLatestMetrics() {
-  return authFetch(withClient(`${API_BASE}/metrics/latest`));
+  return authFetch(withProject(`${API_BASE}/metrics/latest`));
 }
 
 export async function fetchDashboardData(period: string) {
   return authFetch(
-    withClient(`${API_BASE}/dashboard?period=${period}`)
+    withProject(`${API_BASE}/dashboard?period=${period}`)
   );
 }
 
 export async function fetchTrafficAnalysis(period: string) {
   return authFetch(
-    withClient(`${API_BASE}/dashboard/trafficAnalysis?period=${period}`)
+    withProject(`${API_BASE}/dashboard/trafficAnalysis?period=${period}`)
   );
 }
 
 export async function fetchTopCountries(period: string) {
   return authFetch(
-    withClient(`${API_BASE}/dashboard/topCountries?period=${period}`)
+    withProject(`${API_BASE}/dashboard/topCountries?period=${period}`)
   );
 }
 
 export async function fetchAcquisitionChannels(period: string) {
   return authFetch(
-    withClient(
+    withProject(
       `${API_BASE}/dashboard/acquisitionChannels?period=${period}`
     )
   );
@@ -97,7 +97,7 @@ export async function fetchAcquisitionChannels(period: string) {
 
 export async function fetchPagePerformance(period: string) {
   return authFetch(
-    withClient(
+    withProject(
       `${API_BASE}/dashboard/pagePerformance?period=${period}`
     )
   );
@@ -105,7 +105,7 @@ export async function fetchPagePerformance(period: string) {
 
 export async function fetchProductRevenue(period: string) {
   return authFetch(
-    withClient(
+    withProject(
       `${API_BASE}/dashboard/productRevenue?period=${period}`
     )
   );
@@ -113,7 +113,7 @@ export async function fetchProductRevenue(period: string) {
 
 export async function fetchCohortRetention(period: string) {
   return authFetch(
-    withClient(
+    withProject(
       `${API_BASE}/dashboard/cohortRetention?period=${period}`
     )
   );

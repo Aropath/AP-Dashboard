@@ -78,7 +78,7 @@ export default function SignInPage({ onSignIn, onGoToSignUp }: SignInPageProps) 
             </svg>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your GrowthAdvisor account</p>
+          <p className="mt-1.5 text-sm text-muted-foreground">Sign in to your AroPath account</p>
         </div>
 
         {errors.general && (

@@ -510,7 +510,7 @@ export default function SettingsPage() {
             rel="noopener noreferrer"
             className="text-primary hover:underline"
           >
-            Aropath
+            Aropath Dashboard
           </a>
         </p>
       </footer>
