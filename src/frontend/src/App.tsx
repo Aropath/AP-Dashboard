@@ -800,7 +800,7 @@ export default function App() {
             <TrendingUp className="w-4 h-4 text-primary-foreground" />
           </div>
           <span className="font-bold text-foreground text-sm tracking-tight lg:block md:hidden block">
-            AroPath
+            AROPATH
           </span>
           <button
             type="button"
