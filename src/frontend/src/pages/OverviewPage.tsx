@@ -149,7 +149,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         percentage: Math.round((metrics.organic_sessions / totalSessions) * 100),
       },
       {
-        source: "Paid",
+        source: "Monetary",
         sessions: metrics.paid_sessions,
         percentage: Math.round((metrics.paid_sessions / totalSessions) * 100),
       },
