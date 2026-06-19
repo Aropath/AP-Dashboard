@@ -59,12 +59,12 @@ interface ProjectMember {
 }
 
 const navItems: { id: Page; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: "overview",  label: "Overview",    icon: LayoutDashboard },
-  { id: "analytics", label: "Analytics",   icon: BarChart2 },
-  { id: "insights",  label: "Insights",    icon: Lightbulb },
-  { id: "growth",    label: "Growth Plan", icon: TrendingUp },
-  { id: "reports",   label: "Reports",     icon: FileText },
-  { id: "settings",  label: "Settings",    icon: Settings },
+  { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "analytics", label: "Analytics", icon: BarChart2 },
+  { id: "insights", label: "Insights", icon: Lightbulb },
+  { id: "growth", label: "Growth Plan", icon: TrendingUp },
+  { id: "reports", label: "Reports", icon: FileText },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
 const pageTitles: Record<Page, string> = {
@@ -189,7 +189,7 @@ function InviteMembersModal({
     })
       .then((r) => r.json())
       .then((data) => setMembers(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => { });
   }, [projectId]);
 
   async function generateCode() {
@@ -205,7 +205,7 @@ function InviteMembersModal({
       });
       const data = await res.json();
       setInviteCode(data.code);
-    } catch {}
+    } catch { }
     setLoadingCode(false);
   }
 
@@ -213,7 +213,7 @@ function InviteMembersModal({
     await fetch(`${AUTH_API}/sdk/projects/members/${memberId}?projectId=${encodeURIComponent(projectId)}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${localStorage.getItem("access_token") || ""}` },
-    }).catch(() => {});
+    }).catch(() => { });
     setMembers((prev) => prev.filter((m) => m.id !== memberId));
     onChanged?.();
   }
@@ -298,11 +298,10 @@ function InviteMembersModal({
                   <p className="text-[10px] text-muted-foreground truncate">{m.email}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                    m.role === "owner"
+                  <span className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${m.role === "owner"
                       ? "bg-primary/10 text-primary"
                       : "bg-muted-foreground/10 text-muted-foreground"
-                  }`}>
+                    }`}>
                     {m.role === "owner" && <Shield className="w-2.5 h-2.5" />}
                     {m.role}
                   </span>
@@ -465,11 +464,10 @@ function SidebarUserPopover({
               <button
                 type="button"
                 onClick={() => setTheme("teal")}
-                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${
-                  theme === "teal"
+                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${theme === "teal"
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 <span className="w-3 h-3 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
                 Teal
@@ -477,11 +475,10 @@ function SidebarUserPopover({
               <button
                 type="button"
                 onClick={() => setTheme("indigo")}
-                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${
-                  theme === "indigo"
+                className={`flex items-center gap-1.5 flex-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 border ${theme === "indigo"
                     ? "border-primary bg-primary/10 text-primary"
                     : "border-border bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 <span className="w-3 h-3 rounded-full bg-[oklch(0.511_0.22_264)] shrink-0" />
                 Indigo
@@ -588,7 +585,7 @@ export default function App() {
         setActiveProject(data[0].id);
         setActiveProjectIdState(data[0].id);
       }
-    } catch {}
+    } catch { }
   }
 
   useEffect(() => {
@@ -608,23 +605,34 @@ export default function App() {
   }, []);
 
   async function fetchOverviewData(period: DateRange) {
-    try { await fetchDashboardData(period); } catch {}
+    try { await fetchDashboardData(period); } catch { }
   }
 
   async function loadTrafficAnalysis(period: DateRange) {
-    try {
-      const data = await fetchTrafficAnalysis(period);
-      if (!data) return;
-      setTrafficAnalysis(data.map((d: any) => ({ ...d, date: d.date?.value || d.date })));
-    } catch {}
+  try {
+    const data = await fetchTrafficAnalysis(period);
+
+    if (!data) return;
+
+    setTrafficAnalysis(
+      data.map((item: any) => ({
+        date: item.date?.value || item.date,
+        sessions: item.sessions ?? 0,
+        pageviews: item.pageviews ?? item.screenPageViews ?? 0,
+        uniqueVisitors: item.uniqueVisitors ?? item.activeUsers ?? 0,
+      }))
+    );
+  } catch (error) {
+    console.error("Failed to load traffic analysis:", error);
   }
+}
 
   async function loadCountries(period: DateRange) {
     try {
       const data = await fetchTopCountries(period);
       if (!data) return;
       setTopCountries(data.map((c: any) => ({ ...c, flag: countryFlags[c.country] || "🌍" })));
-    } catch {}
+    } catch { }
   }
 
   async function loadDeviceData(period: DateRange) {
@@ -633,18 +641,18 @@ export default function App() {
       if (!data) return;
       const total = data.mobile_sessions + data.desktop_sessions + data.tablet_sessions || 1;
       setDeviceBreakdown([
-        { name: "Mobile",  value: Math.round((data.mobile_sessions / total) * 100),  sessions: data.mobile_sessions },
+        { name: "Mobile", value: Math.round((data.mobile_sessions / total) * 100), sessions: data.mobile_sessions },
         { name: "Desktop", value: Math.round((data.desktop_sessions / total) * 100), sessions: data.desktop_sessions },
-        { name: "Tablet",  value: Math.round((data.tablet_sessions / total) * 100),  sessions: data.tablet_sessions },
+        { name: "Tablet", value: Math.round((data.tablet_sessions / total) * 100), sessions: data.tablet_sessions },
       ]);
       setConversionFunnel([
-        { step: "Visitors",      count: data.visitors,               dropoff: null },
-        { step: "Product Views", count: data.product_view_sessions,  dropoff: Math.round((1 - data.product_view_sessions  / (data.visitors               || 1)) * 100) },
-        { step: "Add to Cart",   count: data.add_to_cart_sessions,   dropoff: Math.round((1 - data.add_to_cart_sessions   / (data.product_view_sessions  || 1)) * 100) },
-        { step: "Checkout",      count: data.checkout_sessions,      dropoff: Math.round((1 - data.checkout_sessions      / (data.add_to_cart_sessions   || 1)) * 100) },
-        { step: "Purchase",      count: data.purchase_sessions,      dropoff: Math.round((1 - data.purchase_sessions      / (data.checkout_sessions      || 1)) * 100) },
+        { step: "Visitors", count: data.visitors, dropoff: null },
+        { step: "Product Views", count: data.product_view_sessions, dropoff: Math.round((1 - data.product_view_sessions / (data.visitors || 1)) * 100) },
+        { step: "Add to Cart", count: data.add_to_cart_sessions, dropoff: Math.round((1 - data.add_to_cart_sessions / (data.product_view_sessions || 1)) * 100) },
+        { step: "Checkout", count: data.checkout_sessions, dropoff: Math.round((1 - data.checkout_sessions / (data.add_to_cart_sessions || 1)) * 100) },
+        { step: "Purchase", count: data.purchase_sessions, dropoff: Math.round((1 - data.purchase_sessions / (data.checkout_sessions || 1)) * 100) },
       ]);
-    } catch {}
+    } catch { }
   }
 
   async function loadAcquisition(period: DateRange) {
@@ -655,7 +663,7 @@ export default function App() {
         source: r.source, sessions: r.sessions, conversions: r.conversions,
         convRate: r.conversion_rate, revenue: r.revenue,
       })));
-    } catch {}
+    } catch { }
   }
 
   async function loadPagePerf(period: DateRange) {
@@ -667,7 +675,7 @@ export default function App() {
         avgTime: r.avg_time_seconds, engagementRate: r.engagement_rate,
         bounceRate: r.bounce_rate, conversions: r.conversions,
       })));
-    } catch {}
+    } catch { }
   }
 
   async function loadProductRevenue(period: DateRange) {
@@ -679,7 +687,7 @@ export default function App() {
         category: r.item_category, unitsSold: r.units_sold,
         revenue: r.revenue, transactions: r.transactions,
       })));
-    } catch {}
+    } catch { }
   }
 
   async function loadCohortRetention(period: DateRange) {
@@ -691,33 +699,43 @@ export default function App() {
         usersRetained: r.users_retained, cohortUsers: r.cohort_users,
         retentionRate: r.retention_rate,
       })));
-    } catch {}
+    } catch { }
   }
 
   function refreshAllData(period: DateRange) {
-    fetchOverviewData(period);
-    loadTrafficAnalysis(period);
-    loadCountries(period);
-    loadDeviceData(period);
-    loadAcquisition(period);
-    loadPagePerf(period);
-    loadProductRevenue(period);
-    loadCohortRetention(period);
-  }
+  fetchOverviewData(period);
+  loadTrafficAnalysis(period);
+  loadCountries(period);
+  loadDeviceData(period);
+  loadAcquisition(period);
+  loadPagePerf(period);
+  loadProductRevenue(period);
+  loadCohortRetention(period);
+}
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    refreshAllData(dateRange);
-  }, [dateRange, isAuthenticated]);
+  if (!isAuthenticated) return;
+
+  refreshAllData(dateRange);
+}, [dateRange, isAuthenticated]);
 
   function renderPage() {
     switch (activePage) {
-      case "overview":     return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
-      case "analytics":    return <AnalyticsPage acquisitionChannels={acquisitionChannels} landingPageData={landingPageData} revenueByProduct={revenueByProduct} retentionData={retentionData} />;
-      case "insights":     return <InsightsPage />;
-      case "growth":       return <GrowthPlanPage />;
-      case "reports":      return <ReportsPage />;
-      case "settings":     return <SettingsPage />;
+      case "overview": return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
+      case "analytics":
+        return (
+          <AnalyticsPage
+            trafficAnalysis={trafficAnalysis}
+            acquisitionChannels={acquisitionChannels}
+            landingPageData={landingPageData}
+            revenueByProduct={revenueByProduct}
+            retentionData={retentionData}
+          />
+        );
+      case "insights": return <InsightsPage />;
+      case "growth": return <GrowthPlanPage />;
+      case "reports": return <ReportsPage />;
+      case "settings": return <SettingsPage />;
       case "subscription": return <SubscriptionPage />;
     }
   }
@@ -736,9 +754,9 @@ export default function App() {
 
   if (!isAuthenticated) {
     return authPage === "signin" ? (
-      <SignInPage onSignIn={() => {}} onGoToSignUp={() => setAuthPage("signup")} />
+      <SignInPage onSignIn={() => { }} onGoToSignUp={() => setAuthPage("signup")} />
     ) : (
-      <SignUpPage onSignUp={() => {}} onGoToSignIn={() => setAuthPage("signin")} />
+      <SignUpPage onSignUp={() => { }} onGoToSignIn={() => setAuthPage("signin")} />
     );
   }
 
