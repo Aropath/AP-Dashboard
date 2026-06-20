@@ -209,3 +209,27 @@
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes searchHighlightGlow {
+  0% {
+    box-shadow: 0 0 0 0px oklch(var(--primary) / 0%);
+    border-color: oklch(var(--border));
+  }
+  20% {
+    box-shadow: 0 0 0 4px oklch(var(--primary) / 40%);
+    border-color: oklch(var(--primary));
+  }
+  80% {
+    box-shadow: 0 0 0 4px oklch(var(--primary) / 40%);
+    border-color: oklch(var(--primary));
+  }
+  100% {
+    box-shadow: 0 0 0 0px oklch(var(--primary) / 0%);
+    border-color: oklch(var(--border));
+  }
+}
+
+.search-highlight {
+  animation: searchHighlightGlow 2.5s ease-in-out;
+}
+

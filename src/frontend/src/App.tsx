@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   LayoutDashboard, BarChart2, Lightbulb, TrendingUp,
   FileText, Settings, Menu, X, ChevronDown, Bell,
@@ -24,6 +24,8 @@ import SettingsPage from "./pages/SettingsPage";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import SignUpPage from "./auth/Signup";
 import SignInPage from "./auth/SignIn";
+import { searchIndex, SearchItem } from "./utils/searchIndex";
+
 
 import {
   fetchDashboardData, fetchTrafficAnalysis, fetchTopCountries,
@@ -537,6 +539,7 @@ function SidebarUserPopover({
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function App() {
   const { isAuthenticated, isLoading, user, signOut } = useAuth();
+  const { theme, mode, setTheme, toggleMode } = useTheme();
   const [authPage, setAuthPage] = useState<"signin" | "signup">("signin");
 
   const [activePage, setActivePage] = useState<Page>("overview");
@@ -546,6 +549,223 @@ export default function App() {
   // Modals
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [recentSearchIds, setRecentSearchIds] = useState<string[]>([]);
+
+  // Load recents on mount/open
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("recent_searches");
+      if (stored) {
+        setRecentSearchIds(JSON.parse(stored));
+      }
+    } catch {}
+  }, [isSearchOpen]);
+
+  // Click outside to close search dropdown
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+        setQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  // Global keyboard shortcuts (Ctrl+K or Cmd+K)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
+
+  const scoringAlgorithm = (item: SearchItem, query: string): number => {
+    const q = query.toLowerCase().trim();
+    const title = item.title.toLowerCase();
+    const desc = item.description.toLowerCase();
+
+    if (title === q) return 1000;
+    if (title.startsWith(q)) return 500;
+    if (title.includes(q)) return 200 - title.indexOf(q);
+
+    for (const keyword of item.keywords) {
+      const kw = keyword.toLowerCase();
+      if (kw === q) return 150;
+      if (kw.startsWith(q)) return 100;
+      if (kw.includes(q)) return 50;
+    }
+
+    if (desc.includes(q)) return 20;
+
+    if (q.length >= 3) {
+      let matches = 0;
+      let queryIdx = 0;
+      for (let i = 0; i < title.length; i++) {
+        if (title[i] === q[queryIdx]) {
+          matches++;
+          queryIdx++;
+          if (queryIdx === q.length) break;
+        }
+      }
+      if (matches === q.length) return 10;
+    }
+
+    return 0;
+  };
+
+  const filteredItems = useMemo(() => {
+    if (!query.trim()) {
+      const recents = recentSearchIds
+        .map((id) => searchIndex.find((item) => item.id === id))
+        .filter((item): item is SearchItem => !!item);
+
+      const defaultPool = [
+        "analytics-traffic-overview",
+        "action-toggle-theme-mode",
+        "overview-ai-insights",
+        "action-manage-team",
+        "reports-card-weekly",
+        "subscription-plans-grid",
+        "page-settings",
+        "action-join-project",
+      ];
+
+      const defaults = defaultPool
+        .map((id) => searchIndex.find((item) => item.id === id))
+        .filter((item): item is SearchItem => !!item && !recentSearchIds.includes(item.id))
+        .slice(0, 4);
+
+      return [...recents, ...defaults];
+    }
+
+    return searchIndex
+      .map((item) => ({ item, score: scoringAlgorithm(item, query) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.item);
+  }, [query, recentSearchIds]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [query]);
+
+  // Keyboard navigation for dropdown
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (filteredItems.length > 0 ? (prev + 1) % filteredItems.length : 0));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (filteredItems.length > 0 ? (prev - 1 + filteredItems.length) % filteredItems.length : 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (filteredItems[selectedIndex]) {
+          handleSearchSelect(filteredItems[selectedIndex]);
+        }
+      } else if (e.key === "Escape") {
+        setIsSearchOpen(false);
+        setQuery("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen, filteredItems, selectedIndex]);
+
+  // Group items by category to display
+  const groupedResults = useMemo(() => {
+    const groups: Record<string, SearchItem[]> = {};
+    filteredItems.forEach((item) => {
+      const category = !query.trim()
+        ? recentSearchIds.includes(item.id)
+          ? "Recent Searches"
+          : "Suggested Searches"
+        : item.category;
+
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(item);
+    });
+    return groups;
+  }, [filteredItems, query, recentSearchIds]);
+
+  const clearAllRecents = () => {
+    setRecentSearchIds([]);
+    localStorage.removeItem("recent_searches");
+  };
+
+  const clearRecentItem = (itemId: string) => {
+    const nextRecents = recentSearchIds.filter((id) => id !== itemId);
+    setRecentSearchIds(nextRecents);
+    localStorage.setItem("recent_searches", JSON.stringify(nextRecents));
+  };
+
+  const handleSearchSelect = (item: SearchItem) => {
+    // Save to recents if not an action or page-specific settings
+    const nextRecents = [item.id, ...recentSearchIds.filter((id) => id !== item.id)].slice(0, 5);
+    setRecentSearchIds(nextRecents);
+    localStorage.setItem("recent_searches", JSON.stringify(nextRecents));
+
+    // Execute actions
+    if (item.actionKey) {
+      switch (item.actionKey) {
+        case "toggleThemeMode":
+        case "setTealTheme":
+        case "setIndigoTheme":
+          // Redirect the user to Settings page Preferences
+          setActivePage("settings");
+          setTimeout(() => {
+            const el = document.getElementById("settings-preferences");
+            if (el) {
+              el.scrollIntoView({ behavior: "smooth", block: "center" });
+              el.classList.add("search-highlight");
+              setTimeout(() => el.classList.remove("search-highlight"), 2500);
+            }
+          }, 150);
+          break;
+        case "openJoinModal":
+          setShowJoinModal(true);
+          break;
+        case "openTeamModal":
+          setShowTeamModal(true);
+          break;
+        case "signOut":
+          signOut();
+          break;
+      }
+    } else if (item.page) {
+      setActivePage(item.page);
+
+      // Scroll to widget if it is an element ID
+      if (item.id && !item.id.startsWith("page-")) {
+        setTimeout(() => {
+          const el = document.getElementById(item.id);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("search-highlight");
+            setTimeout(() => el.classList.remove("search-highlight"), 2500);
+          }
+        }, 150);
+      }
+    }
+
+    setIsSearchOpen(false);
+    setQuery("");
+  };
+
 
   // ── Analytics data state ──
   const [trafficAnalysis, setTrafficAnalysis] = useState<any[]>([]);
@@ -934,11 +1154,128 @@ export default function App() {
               </button>
             )}
 
-            {/* Search */}
-            <button type="button" className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted/80 transition-colors">
-              <Search className="w-4 h-4" />
-              <span className="hidden md:block text-xs">Search…</span>
-            </button>
+            {/* Search Container */}
+            <div className="relative z-50" ref={searchRef}>
+              {!isSearchOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground bg-muted rounded-lg hover:bg-muted/80 transition-all duration-300 w-9 sm:w-28 h-9 border border-transparent justify-center sm:justify-start"
+                >
+                  <Search className="w-4 h-4 shrink-0" />
+                  <span className="text-xs hidden sm:inline">Search…</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted border border-primary rounded-lg transition-all duration-300 w-[240px] sm:w-80 md:w-96 h-9 shadow-sm animate-in fade-in slide-in-from-right-3 duration-200">
+                  <Search className="w-4 h-4 text-primary shrink-0" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search..."
+                    className="flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/50 min-w-0"
+                    autoFocus
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsSearchOpen(false); setQuery(""); }}
+                    className="text-muted-foreground hover:text-foreground text-[10px] font-semibold bg-background border border-border px-1.5 py-0.5 rounded shrink-0 hidden sm:block"
+                  >
+                    ESC
+                  </button>
+                </div>
+              )}
+
+              {/* Dropdown Menu */}
+              {isSearchOpen && (
+                <div className="absolute top-full right-0 mt-2 w-[280px] sm:w-[400px] bg-card border border-border rounded-xl shadow-elevated overflow-hidden flex flex-col max-h-[45vh] animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="flex-1 overflow-y-auto p-2 space-y-3.5 scrollbar-thin">
+                    {filteredItems.length === 0 ? (
+                      <div className="py-8 text-center">
+                        <p className="text-xs text-muted-foreground">No matches for &quot;{query}&quot;</p>
+                      </div>
+                    ) : (
+                      Object.entries(groupedResults).map(([groupTitle, items]) => (
+                        <div key={groupTitle}>
+                          <div className="flex items-center justify-between px-3 py-1.5">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                              {groupTitle}
+                            </p>
+                            {groupTitle === "Recent Searches" && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  clearAllRecents();
+                                }}
+                                className="text-[9px] font-semibold text-primary hover:underline cursor-pointer"
+                              >
+                                Clear All
+                              </button>
+                            )}
+                          </div>
+                          <div className="space-y-0.5">
+                            {items.map((item) => {
+                              const globalIdx = filteredItems.indexOf(item);
+                              const isSelected = globalIdx === selectedIndex;
+                              return (
+                                <div key={item.id} className="group relative flex items-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSearchSelect(item)}
+                                    onMouseEnter={() => setSelectedIndex(globalIdx)}
+                                    className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-xl transition-all duration-150 pr-8 ${
+                                      isSelected
+                                        ? "bg-muted text-foreground"
+                                        : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex-1 pr-2">
+                                      <p className={`text-xs font-semibold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                                        {item.title}
+                                      </p>
+                                      <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                                        {item.description}
+                                      </p>
+                                    </div>
+                                    {isSelected && groupTitle !== "Recent Searches" && (
+                                      <span className="shrink-0 text-[9px] font-semibold text-muted-foreground bg-background border border-border px-1.5 py-0.5 rounded">
+                                        ↵ ENTER
+                                      </span>
+                                    )}
+                                  </button>
+                                  {groupTitle === "Recent Searches" && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        clearRecentItem(item.id);
+                                      }}
+                                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                      title="Remove from recents"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="px-4 py-2 border-t border-border bg-muted/20 flex items-center justify-between shrink-0">
+                    <span className="text-[10px] text-muted-foreground">
+                      Navigate with <kbd className="font-mono font-semibold">↑↓</kbd>
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Open with <kbd className="font-mono font-semibold">↵</kbd>
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Date range */}
             <DropdownMenu>

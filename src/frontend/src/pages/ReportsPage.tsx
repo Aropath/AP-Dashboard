@@ -63,7 +63,7 @@ export default function ReportsPage() {
           const state = reportStates[card.id];
           const Icon = card.icon;
           return (
-            <div key={card.id} className="bg-card rounded-2xl p-6 shadow-card border border-border">
+            <div id={`reports-card-${card.id}`} key={card.id} className="bg-card rounded-2xl p-6 shadow-card border border-border">
               <div className="flex items-start gap-4 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
                   <Icon className="w-5 h-5 text-primary" />
@@ -133,7 +133,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Report History */}
-      <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+      <div id="reports-history-table" className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
         <div className="p-5 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">Report History</h3>
           <span
