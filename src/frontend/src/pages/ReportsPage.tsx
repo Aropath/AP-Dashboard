@@ -9,9 +9,81 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { reportHistory } from "../mockData";
 
 type ReportState = "idle" | "generating" | "done";
+
+interface ReportHistoryRow {
+  name: string;
+  period: string;
+  generated: string;
+  status: string;
+}
+
+// Placeholder seed rows shown before any report has been downloaded.
+// Mirrors mockData.ts's reportHistory shape. Replace with a real API
+// call (e.g. fetchReportHistory()) when the backend endpoint exists.
+const initialReportHistory: ReportHistoryRow[] = [
+  { name: "Weekly Growth Report", period: "Feb 17–23, 2026", generated: "Feb 24, 2026", status: "Ready" },
+  { name: "Monthly Analytics Report", period: "January 2026", generated: "Feb 1, 2026", status: "Ready" },
+  { name: "Weekly Growth Report", period: "Feb 10–16, 2026", generated: "Feb 17, 2026", status: "Ready" },
+  { name: "Q4 Business Review", period: "Oct–Dec 2025", generated: "Jan 5, 2026", status: "Ready" },
+  { name: "Weekly Growth Report", period: "Feb 3–9, 2026", generated: "Feb 10, 2026", status: "Ready" },
+  { name: "Monthly Analytics Report", period: "December 2025", generated: "Jan 2, 2026", status: "Ready" },
+];
+
+/**
+ * Builds a minimal, valid single-page blank PDF as a Blob.
+ * This is a placeholder for real report generation — swap the byte
+ * content here once a backend PDF-generation endpoint exists.
+ */
+function buildBlankPdfBlob(): Blob {
+  const pdf = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 0 >>
+stream
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+trailer
+<< /Size 5 /Root 1 0 R >>
+startxref
+0
+%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function downloadBlankPdf(filename: string) {
+  const blob = buildBlankPdfBlob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function formatNow(): string {
+  return new Date().toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 interface ReportCard {
   id: string;
@@ -43,6 +115,7 @@ export default function ReportsPage() {
     weekly: "idle",
     monthly: "idle",
   });
+  const [reportHistory, setReportHistory] = useState<ReportHistoryRow[]>(initialReportHistory);
 
   function generateReport(id: string) {
     setReportStates((prev) => ({ ...prev, [id]: "generating" }));
@@ -53,6 +126,26 @@ export default function ReportsPage() {
 
   function resetReport(id: string) {
     setReportStates((prev) => ({ ...prev, [id]: "idle" }));
+  }
+
+  // Downloads a blank PDF for a given report card and logs it into history.
+  function handleDownloadCard(card: ReportCard) {
+    const generatedAt = formatNow();
+    downloadBlankPdf(`${card.title.replace(/\s+/g, "_")}_${Date.now()}`);
+    setReportHistory((prev) => [
+      {
+        name: card.id === "weekly" ? "Weekly Growth Report" : "Monthly Analytics Report",
+        period: card.id === "weekly" ? "Last 7 days" : "Last 30 days",
+        generated: generatedAt,
+        status: "Ready",
+      },
+      ...prev,
+    ]);
+  }
+
+  // Re-downloads a blank PDF for an existing history row (doesn't re-log).
+  function handleDownloadHistoryRow(row: ReportHistoryRow) {
+    downloadBlankPdf(`${row.name.replace(/\s+/g, "_")}_${Date.now()}`);
   }
 
   return (
@@ -112,6 +205,7 @@ export default function ReportsPage() {
                   size="sm"
                   className="h-9 text-xs gap-1.5"
                   disabled={state === "generating"}
+                  onClick={() => handleDownloadCard(card)}
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download PDF
@@ -171,6 +265,7 @@ export default function ReportsPage() {
                   <TableCell>
                     <button
                       type="button"
+                      onClick={() => handleDownloadHistoryRow(row)}
                       className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
