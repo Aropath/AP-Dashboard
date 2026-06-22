@@ -175,7 +175,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
   return (
     <div className="space-y-6">
       {/* Business Health Card */}
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border">
+      <div id="business-health-card" className="bg-card rounded-2xl p-6 shadow-card border border-border">
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">
           {/* Growth Score */}
           <div className="flex items-center gap-6">
@@ -250,52 +250,64 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MetricCard
-          label="Total Users"
-          value={metrics ? metrics.users.toLocaleString() : "..."}
-          change={metrics?.users_change}
-          sparkData={metricsSparklines.users}
-        />
+        <div id="metric-card-total-users">
+          <MetricCard
+            label="Total Users"
+            value={metrics ? metrics.users.toLocaleString() : "..."}
+            change={metrics?.users_change}
+            sparkData={metricsSparklines.users}
+          />
+        </div>
 
-        <MetricCard
-          label="Sessions"
-          value={metrics ? metrics.sessions.toLocaleString() : "..."}
-          change={metrics?.sessions_change}
-          sparkData={metricsSparklines.sessions}
-        />
+        <div id="metric-card-sessions">
+          <MetricCard
+            label="Sessions"
+            value={metrics ? metrics.sessions.toLocaleString() : "..."}
+            change={metrics?.sessions_change}
+            sparkData={metricsSparklines.sessions}
+          />
+        </div>
 
-        <MetricCard
-          label="Conversion Rate"
-          value={
-            metrics?.conversion_rate !== undefined
-              ? `${Number(metrics.conversion_rate).toFixed(2)}%`
-              : "..."
-          }
-          change={metrics?.conversion_change}
-          sparkData={metricsSparklines.conversion}
-        />
+        <div id="metric-card-conversion-rate">
+          <MetricCard
+            label="Conversion Rate"
+            value={
+              metrics?.conversion_rate !== undefined
+                ? `${Number(metrics.conversion_rate).toFixed(2)}%`
+                : "..."
+            }
+            change={metrics?.conversion_change}
+            sparkData={metricsSparklines.conversion}
+          />
+        </div>
 
-        <MetricCard
-          label="Revenue"
-          value={metrics ? `$${metrics.revenue.toLocaleString()}` : "..."}
-          change={metrics?.revenue_change}
-          sparkData={metricsSparklines.revenue}
-        />
+        <div id="metric-card-revenue">
+          <MetricCard
+            label="Revenue"
+            value={metrics ? `$${metrics.revenue.toLocaleString()}` : "..."}
+            change={metrics?.revenue_change}
+            sparkData={metricsSparklines.revenue}
+          />
+        </div>
 
-        <MetricCard
-          label="Engagement Rate"
-          value={metrics ? `${metrics.engagement_rate}%` : "..."}
-          change={metrics?.engagement_change}
-          sparkData={metricsSparklines.engagement}
-        />
+        <div id="metric-card-engagement-rate">
+          <MetricCard
+            label="Engagement Rate"
+            value={metrics ? `${metrics.engagement_rate}%` : "..."}
+            change={metrics?.engagement_change}
+            sparkData={metricsSparklines.engagement}
+          />
+        </div>
 
-        <MetricCard
-          label="Bounce Rate"
-          value={metrics ? `${metrics.bounce_rate}%` : "..."}
-          change={metrics?.bounce_change}
-          sparkData={metricsSparklines.bounce}
-          invertChange
-        />
+        <div id="metric-card-bounce-rate">
+          <MetricCard
+            label="Bounce Rate"
+            value={metrics ? `${metrics.bounce_rate}%` : "..."}
+            change={metrics?.bounce_change}
+            sparkData={metricsSparklines.bounce}
+            invertChange
+          />
+        </div>
       </div>
 
       {/* Traffic Analysis */}
@@ -303,7 +315,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Traffic Analysis</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Sessions Over Time */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-traffic-analysis-chart" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Sessions Over Time</h3>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={sessionsTrafficAnalysis} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
@@ -330,7 +342,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Traffic Sources */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-traffic-sources-chart" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Traffic Sources</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={trafficSources} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
@@ -346,7 +358,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Device Breakdown */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-device-breakdown" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Device Breakdown</h3>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width={160} height={160}>
@@ -382,7 +394,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Top Countries */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-top-countries" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Top Countries</h3>
             <div className="space-y-3">
               {topCountries.map((country) => (
@@ -410,7 +422,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
       </div>
 
       {/* Conversion Funnel */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="overview-conversion-funnel" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <h2 className="text-sm font-semibold text-foreground mb-5 uppercase tracking-wide">Conversion Funnel</h2>
         <div className="space-y-2">
           {conversionFunnel.map((step, index) => {
@@ -457,7 +469,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
       </div>
 
       {/* AI Insights */}
-      <div>
+      <div id="overview-ai-insights">
         <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide flex items-center gap-2">
           <Zap className="w-4 h-4 text-primary" />
           AI Insights

@@ -78,7 +78,7 @@ export default function AnalyticsPage({
     <div className="space-y-6">
       
 
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="analytics-traffic-overview" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <h3 className="text-sm font-semibold text-foreground mb-4">Traffic Overview</h3>
 
         <ResponsiveContainer width="100%" height={360}>
@@ -117,7 +117,7 @@ export default function AnalyticsPage({
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+      <div id="analytics-acquisition-channels" className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
         <div className="p-5 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Acquisition Channels</h3>
         </div>
@@ -163,7 +163,7 @@ export default function AnalyticsPage({
         </div>
       </div>
 
-      <div className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+      <div id="analytics-landing-page" className="bg-card rounded-2xl shadow-card border border-border overflow-hidden">
         <div className="p-5 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Landing Page Performance</h3>
         </div>
@@ -210,7 +210,7 @@ export default function AnalyticsPage({
         </div>
       </div>
 
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="analytics-revenue-product" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <h3 className="text-sm font-semibold text-foreground mb-4">Revenue by Product</h3>
 
         <ResponsiveContainer width="100%" height={260}>
@@ -236,7 +236,7 @@ export default function AnalyticsPage({
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="analytics-customer-retention" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <h3 className="text-sm font-semibold text-foreground mb-4">Customer Retention by Cohort</h3>
 
         <ResponsiveContainer width="100%" height={260}>

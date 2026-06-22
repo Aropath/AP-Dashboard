@@ -1,0 +1,331 @@
+export type PageType = "overview" | "analytics" | "insights" | "growth" | "reports" | "settings" | "subscription";
+
+export interface SearchItem {
+  id: string;
+  title: string;
+  description: string;
+  category: "Pages" | "Charts & Widgets" | "Actions";
+  keywords: string[];
+  page?: PageType;
+  actionKey?: "toggleThemeMode" | "setTealTheme" | "setIndigoTheme" | "openJoinModal" | "openTeamModal" | "signOut";
+}
+
+export const searchIndex: SearchItem[] = [
+  // --- Pages ---
+  {
+    id: "page-overview",
+    title: "Overview Dashboard",
+    description: "Main dashboard displaying growth score, key health metrics, and overall traffic trends.",
+    category: "Pages",
+    keywords: ["home", "main", "overview", "dashboard", "health score", "summary"],
+    page: "overview",
+  },
+  {
+    id: "page-analytics",
+    title: "Detailed Analytics",
+    description: "Deep dive into web traffic metrics, acquisition channels, page performance, and cohorts.",
+    category: "Pages",
+    keywords: ["analytics", "charts", "data", "retention", "products", "tables", "traffic"],
+    page: "analytics",
+  },
+  {
+    id: "page-insights",
+    title: "AI Insights",
+    description: "AI-generated opportunities and recommendations to increase revenue and conversions.",
+    category: "Pages",
+    keywords: ["insights", "ai", "suggestions", "recommendations", "tips", "advisor", "actions"],
+    page: "insights",
+  },
+  {
+    id: "page-growth",
+    title: "Growth Plan",
+    description: "Actionable step-by-step checklist to optimize conversion rate and traffic.",
+    category: "Pages",
+    keywords: ["growth", "plan", "roadmap", "checklist", "tasks", "roi", "ad spend"],
+    page: "growth",
+  },
+  {
+    id: "page-reports",
+    title: "Generated Reports",
+    description: "Export and view historic summaries, growth reports, and monthly analytics reviews.",
+    category: "Pages",
+    keywords: ["reports", "exports", "history", "downloads", "reviews", "monthly report"],
+    page: "reports",
+  },
+  {
+    id: "page-settings",
+    title: "Project & SDK Settings",
+    description: "Manage tracking projects, generate SDK snippets, API keys, and timezone preferences.",
+    category: "Pages",
+    keywords: ["settings", "preferences", "sdk", "api keys", "projects", "currency", "timezone", "profile", "account", "personal info"],
+    page: "settings",
+  },
+  {
+    id: "page-subscription",
+    title: "Subscription & Billing",
+    description: "View pricing plans, upgrade tiers, manage subscription billing, or check plan limits.",
+    category: "Pages",
+    keywords: ["subscription", "billing", "pricing", "plans", "upgrade", "invoice", "free", "pro", "growth", "billing tier", "pricing packages"],
+    page: "subscription",
+  },
+
+  // --- Widgets: Overview Page ---
+  {
+    id: "business-health-card",
+    title: "Growth Score & Health",
+    description: "Overview page: overall system health metric, risk assessment, and revenue trends.",
+    category: "Charts & Widgets",
+    keywords: ["growth score", "health", "risk", "revenue trend", "business health"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-total-users",
+    title: "Metric: Total Users",
+    description: "Overview page KPI: total registered or visiting users with month-over-month trend.",
+    category: "Charts & Widgets",
+    keywords: ["total users", "users kpi", "registered users", "audiences"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-sessions",
+    title: "Metric: Sessions",
+    description: "Overview page KPI: total visits or sessions recorded on your integrated sites.",
+    category: "Charts & Widgets",
+    keywords: ["sessions kpi", "visits", "traffic count", "total sessions"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-conversion-rate",
+    title: "Metric: Conversion Rate",
+    description: "Overview page KPI: percentage of session visits resulting in transactions.",
+    category: "Charts & Widgets",
+    keywords: ["conversion rate kpi", "conv rate", "conversion percentage", "checkout success"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-revenue",
+    title: "Metric: Total Revenue",
+    description: "Overview page KPI: total gross revenue generated from checkouts.",
+    category: "Charts & Widgets",
+    keywords: ["revenue kpi", "total sales", "earnings", "gross income", "money"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-engagement-rate",
+    title: "Metric: Engagement Rate",
+    description: "Overview page KPI: percentage of sessions that were active/engaged.",
+    category: "Charts & Widgets",
+    keywords: ["engagement rate kpi", "active sessions", "engaged percentage"],
+    page: "overview",
+  },
+  {
+    id: "metric-card-bounce-rate",
+    title: "Metric: Bounce Rate",
+    description: "Overview page KPI: percentage of single-page sessions with zero interactions.",
+    category: "Charts & Widgets",
+    keywords: ["bounce rate kpi", "bounces", "single page exit"],
+    page: "overview",
+  },
+  {
+    id: "overview-traffic-analysis-chart",
+    title: "Chart: Sessions Over Time",
+    description: "Overview page: daily traffic trend displaying sessions over the selected timeframe.",
+    category: "Charts & Widgets",
+    keywords: ["sessions over time", "daily traffic chart", "sessions trend", "timeline"],
+    page: "overview",
+  },
+  {
+    id: "overview-traffic-sources-chart",
+    title: "Chart: Traffic Sources",
+    description: "Overview page: bar chart grouping traffic by search, paid, direct, or social.",
+    category: "Charts & Widgets",
+    keywords: ["traffic sources", "organic search", "paid ads", "social media sources", "channels bar chart"],
+    page: "overview",
+  },
+  {
+    id: "overview-device-breakdown",
+    title: "Chart: Device Breakdown",
+    description: "Overview page: donut chart comparing desktop, mobile, and tablet usage share.",
+    category: "Charts & Widgets",
+    keywords: ["device breakdown", "mobile usage", "desktop share", "tablet pie chart", "platform division"],
+    page: "overview",
+  },
+  {
+    id: "overview-top-countries",
+    title: "List: Top Countries",
+    description: "Overview page: map flag metrics displaying sessions grouped by visitor nation.",
+    category: "Charts & Widgets",
+    keywords: ["top countries", "visitor location", "flags", "international traffic", "geography"],
+    page: "overview",
+  },
+  {
+    id: "overview-conversion-funnel",
+    title: "Chart: Conversion Funnel",
+    description: "Overview page: session flow from view, cart add, checkout, to final purchase.",
+    category: "Charts & Widgets",
+    keywords: ["conversion funnel", "purchase flow", "cart abandonment", "dropoff rate", "checkout steps"],
+    page: "overview",
+  },
+  {
+    id: "overview-ai-insights",
+    title: "List: AI Recommendations",
+    description: "Overview page: prioritized lists of actionable growth tasks generated by AI.",
+    category: "Charts & Widgets",
+    keywords: ["ai insights list", "health advisor tips", "prioritized suggestions"],
+    page: "overview",
+  },
+
+  // --- Widgets: Analytics Page ---
+  {
+    id: "analytics-traffic-overview",
+    title: "Chart: Traffic Overview",
+    description: "Analytics page: high-fidelity comparison of Sessions, Pageviews, and Unique Visitors.",
+    category: "Charts & Widgets",
+    keywords: ["traffic overview", "sessions pageviews unique visitors line chart", "detailed trends", "traffic curves"],
+    page: "analytics",
+  },
+  {
+    id: "analytics-acquisition-channels",
+    title: "Table: Acquisition Channels",
+    description: "Analytics page: detailed channel source data listing sessions, conversion rates, and revenue.",
+    category: "Charts & Widgets",
+    keywords: ["acquisition channels table", "marketing sources comparison", "organic paid direct email referral table"],
+    page: "analytics",
+  },
+  {
+    id: "analytics-landing-page",
+    title: "Table: Landing Page Performance",
+    description: "Analytics page: page views, average reading time, bounce rates, and target page conversions.",
+    category: "Charts & Widgets",
+    keywords: ["landing page performance table", "pageviews ranking", "time on site", "bounce rates by page"],
+    page: "analytics",
+  },
+  {
+    id: "analytics-revenue-product",
+    title: "Chart: Revenue by Product",
+    description: "Analytics page: bar chart showing subscription tier and add-on sales breakdown.",
+    category: "Charts & Widgets",
+    keywords: ["revenue by product", "pro starter business plan revenue", "tier sales bar chart"],
+    page: "analytics",
+  },
+  {
+    id: "analytics-customer-retention",
+    title: "Chart: Customer Retention by Cohort",
+    description: "Analytics page: cohort analysis line chart displaying monthly recurring user loyalty.",
+    category: "Charts & Widgets",
+    keywords: ["customer retention by cohort", "cohort line chart", "recurring loyalty", "user lifetime analysis"],
+    page: "analytics",
+  },
+
+  // --- Widgets: Settings Page ---
+  {
+    id: "settings-tracking-projects",
+    title: "Form: Tracking Projects",
+    description: "Settings page: create projects, fetch SDK scripts, copy tracking IDs, or rotate API keys.",
+    category: "Charts & Widgets",
+    keywords: ["tracking projects setup", "sdk snippets", "generate api keys", "tracking ids"],
+    page: "settings",
+  },
+  {
+    id: "settings-preferences",
+    title: "Form: Preferences",
+    description: "Settings page: configure currency selection and timezone groupings.",
+    category: "Charts & Widgets",
+    keywords: ["preferences settings", "currency preference", "timezone settings"],
+    page: "settings",
+  },
+
+  // --- Widgets: Reports Page ---
+  {
+    id: "reports-card-weekly",
+    title: "Weekly Report",
+    description: "Reports page: generate or download weekly summaries of traffic, conversions, and AI insights.",
+    category: "Charts & Widgets",
+    keywords: ["week", "weekly", "weekly report", "generate weekly report", "traffic weekly", "7 days"],
+    page: "reports",
+  },
+  {
+    id: "reports-card-monthly",
+    title: "Monthly Report",
+    description: "Reports page: generate or download monthly analysis with retention, cohort analysis, and strategic plans.",
+    category: "Charts & Widgets",
+    keywords: ["month", "monthly", "monthly report", "generate monthly report", "retention monthly", "30 days"],
+    page: "reports",
+  },
+  {
+    id: "reports-history-table",
+    title: "Report History",
+    description: "Reports page: table view of generated historical reports available for download.",
+    category: "Charts & Widgets",
+    keywords: ["report history", "past reports", "download pdf report", "growth report log", "archives", "pdf"],
+    page: "reports",
+  },
+
+  // --- Widgets: Subscription Page ---
+  {
+    id: "subscription-current-plan",
+    title: "Subscription: Current Plan",
+    description: "Subscription page: view details of your current active subscription plan and status.",
+    category: "Charts & Widgets",
+    keywords: ["current plan", "active tier", "my plan status", "cancel subscription", "billing cycle"],
+    page: "subscription",
+  },
+  {
+    id: "subscription-plans-grid",
+    title: "Subscription: Upgrade & Pricing Plans",
+    description: "Subscription page: compare pricing tiers (Free, Growth, Pro, Enterprise) and upgrade options.",
+    category: "Charts & Widgets",
+    keywords: ["upgrade plan", "pricing plans", "monthly pricing", "yearly discount", "billing tiers", "enterprise option"],
+    page: "subscription",
+  },
+
+  // --- Actions ---
+  {
+    id: "action-join-project",
+    title: "Action: Join a Project",
+    description: "Join an existing workspace by entering a shared invitation code.",
+    category: "Actions",
+    keywords: ["join project", "invite code", "enter workspace", "collaboration"],
+    actionKey: "openJoinModal",
+  },
+  {
+    id: "action-manage-team",
+    title: "Action: Manage Team Members",
+    description: "View current workspace members or generate a shareable invite code (Owners only).",
+    category: "Actions",
+    keywords: ["invite team members", "invite code generation", "remove user", "workspace permissions"],
+    actionKey: "openTeamModal",
+  },
+  {
+    id: "action-toggle-theme-mode",
+    title: "Action: Toggle Dark / Light Mode",
+    description: "Instantly switch the layout appearance between Dark mode and Light mode.",
+    category: "Actions",
+    keywords: ["toggle light dark mode", "night mode", "day mode", "brightness", "appearance theme"],
+    actionKey: "toggleThemeMode",
+  },
+  {
+    id: "action-set-indigo",
+    title: "Theme: Indigo Branding",
+    description: "Apply the original modern deep Indigo color theme to all UI elements.",
+    category: "Actions",
+    keywords: ["set indigo color", "purple brand accent", "change background highlight"],
+    actionKey: "setIndigoTheme",
+  },
+  {
+    id: "action-set-teal",
+    title: "Theme: Teal Branding",
+    description: "Apply the new harmonized Teal color theme to all UI elements.",
+    category: "Actions",
+    keywords: ["set teal color", "green blue brand accent", "change background highlight"],
+    actionKey: "setTealTheme",
+  },
+  {
+    id: "action-sign-out",
+    title: "Action: Sign Out",
+    description: "Safely end your current session and return to the login interface.",
+    category: "Actions",
+    keywords: ["sign out", "logout", "end session", "exit system"],
+    actionKey: "signOut",
+  },
+];

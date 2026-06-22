@@ -10,6 +10,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 const TRACKER_BASE_URL = import.meta.env.VITE_TRACKER_BASE_URL || "http://localhost:4000";
@@ -68,6 +69,7 @@ const safeFetch = async (url: string, options: RequestInit = {}): Promise<any> =
 
 export default function SettingsPage() {
   const { user } = useAuth();
+  const { theme, mode, setTheme, toggleMode } = useTheme();
 
   // Preferences
   const [currency, setCurrency] = useState("USD");
@@ -215,7 +217,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-6">
 
       {/* ── SDK Tracking Projects ──────────────────────────────────────── */}
-      <section>
+      <section id="settings-tracking-projects">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           SDK &amp; Tracking
         </h2>
@@ -450,7 +452,7 @@ export default function SettingsPage() {
       </section> */}
 
       {/* ── Preferences ────────────────────────────────────────────────── */}
-      <section>
+      <section id="settings-preferences">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Preferences
         </h2>
@@ -483,6 +485,53 @@ export default function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="border-t border-border" />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-medium text-foreground">Theme Accent Color</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Customize the dashboard primary color brand accent</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme("teal")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  theme === "teal"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
+                Teal
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("indigo")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  theme === "indigo"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.511_0.22_264)] shrink-0" />
+                Indigo
+              </button>
+            </div>
+          </div>
+          <div className="border-t border-border" />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-medium text-foreground">Appearance Mode</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Switch layout styling between light and dark modes</p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-border bg-muted hover:bg-muted/80 text-foreground transition-all"
+            >
+              {mode === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            </button>
           </div>
         </div>
       </section>
