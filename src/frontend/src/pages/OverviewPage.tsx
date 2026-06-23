@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { fetchLatestMetrics } from "../services/fetchMetrics";
 import { fetchDashboardData } from "../services/fetchMetrics";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   LineChart,
   Line,
@@ -23,10 +23,6 @@ import {
   sessionsLast30Days,
   metricsSparklines,
   revenueSparkline,
-  // trafficSources,
-  deviceBreakdown,
-  topCountries,
-  conversionFunnel,
   aiInsights,
 } from "../mockData";
 
@@ -71,7 +67,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
             : "text-danger-DEFAULT bg-danger-light"
             }`}
           style={{
-            color: isPositive ? "#16a34a" : "#dc2626",
+            color: isPositive ? "#16a34a" : "#ff10f0",
             backgroundColor: isPositive ? "#dcfce7" : "#fee2e2",
           }}
         >
@@ -119,10 +115,11 @@ type OverviewPageProps = {
   topCountries: topCountry[];
   deviceBreakdown: DeviceBreakdown[];
   conversionFunnel: ConversionStep[];
+  currency?: string;
 };
 
 
-export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel }: OverviewPageProps) {
+export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel, currency = "INR" }: OverviewPageProps) {
   const [doneInsights, setDoneInsights] = useState<Set<number>>(new Set());
 
   function toggleInsight(id: number) {
@@ -222,7 +219,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
               <p className="text-xs text-muted-foreground mb-1">Revenue</p>
               <p className="text-lg font-bold text-foreground font-mono">
                 {metrics?.revenue !== undefined
-                  ? `$${(metrics.revenue / 1000).toFixed(0)}K`
+                  ? formatCurrencyCompact(metrics.revenue, currency)
                   : "..."}
               </p>
             </div>
@@ -281,14 +278,12 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           />
         </div>
 
-        <div id="metric-card-revenue">
-          <MetricCard
-            label="Revenue"
-            value={metrics ? `$${metrics.revenue.toLocaleString()}` : "..."}
-            change={metrics?.revenue_change}
-            sparkData={metricsSparklines.revenue}
-          />
-        </div>
+        <MetricCard
+          label="Revenue"
+          value={metrics ? formatCurrencyCompact(metrics.revenue, currency) : "..."}
+          change={metrics?.revenue_change}
+          sparkData={metricsSparklines.revenue}
+        />
 
         <div id="metric-card-engagement-rate">
           <MetricCard

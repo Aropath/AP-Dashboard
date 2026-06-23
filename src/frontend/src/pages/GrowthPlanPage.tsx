@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   BarChart,
   Bar,
@@ -24,7 +25,7 @@ const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
   Hard: { color: "#dc2626", bg: "#fee2e2" },
 };
 
-export default function GrowthPlanPage() {
+export default function GrowthPlanPage({ currency = "USD" }: { currency?: string }) {
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set([1, 3, 5, 6, 7]));
 
   function toggleTask(id: number) {
@@ -182,14 +183,14 @@ export default function GrowthPlanPage() {
               tick={{ fontSize: 10, fill: "oklch(0.52 0.018 255)" }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`}
+              tickFormatter={(v: number) => formatCurrencyCompact(v, currency)}
               domain={[180000, 360000]}
             />
             <Tooltip
               contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid oklch(0.91 0.01 255)" }}
               formatter={(v) => {
                 const num = typeof v === "number" ? v : null;
-                return num ? [`$${num.toLocaleString()}`, ""] : ["—", ""];
+                return num ? [formatCurrencyCompact(num, currency), ""] : ["—", ""];
               }}
             />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />

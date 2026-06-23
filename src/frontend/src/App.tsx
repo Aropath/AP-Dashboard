@@ -34,6 +34,7 @@ import {
   setActiveProject, getActiveProject,
 } from "./services/fetchMetrics";
 import { countryFlags } from "./services/countryFlags";
+import { getCurrencySymbol } from "./services/currencies";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 
@@ -545,6 +546,7 @@ export default function App() {
   const [activePage, setActivePage] = useState<Page>("overview");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currency, setCurrency] = useState<string>("USD");
 
   // Modals
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -941,7 +943,7 @@ export default function App() {
 
   function renderPage() {
     switch (activePage) {
-      case "overview": return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
+      case "overview": return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} currency={currency} />;
       case "analytics":
         return (
           <AnalyticsPage
@@ -950,12 +952,13 @@ export default function App() {
             landingPageData={landingPageData}
             revenueByProduct={revenueByProduct}
             retentionData={retentionData}
+            currency={currency}
           />
         );
       case "insights": return <InsightsPage />;
-      case "growth": return <GrowthPlanPage />;
+      case "growth": return <GrowthPlanPage currency={currency} />;
       case "reports": return <ReportsPage />;
-      case "settings": return <SettingsPage />;
+      case "settings": return <SettingsPage currency={currency} onCurrencyChange={setCurrency} />;
       case "subscription": return <SubscriptionPage />;
     }
   }
