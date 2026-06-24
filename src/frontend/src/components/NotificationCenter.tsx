@@ -11,6 +11,7 @@ import {
   FileText,
   Lightbulb,
   LucideIcon,
+  Maximize2,
   Rocket,
   Shield,
   Sparkles,
@@ -23,14 +24,14 @@ import { cn } from "@/lib/utils";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type NotificationCategoryId =
+export type NotificationCategoryId =
   | "business"
   | "insight"
   | "growth"
   | "reports"
   | "system";
 
-type NotificationType =
+export type NotificationType =
   | "information"
   | "success"
   | "warning"
@@ -41,9 +42,9 @@ type NotificationType =
   | "security"
   | "system";
 
-type NotificationPriority = "critical" | "high" | "medium" | "low" | "information";
+export type NotificationPriority = "high" | "medium" | "low";
 
-interface NotificationDetails {
+export interface NotificationDetails {
   completeDescription: string;
   whatHappened: string;
   whyItMatters: string;
@@ -52,7 +53,9 @@ interface NotificationDetails {
   exactTimestamp: string;
 }
 
-interface NotificationItem {
+export type PageType = "overview" | "analytics" | "insights" | "growth" | "reports" | "settings" | "subscription";
+
+export interface NotificationItem {
   id: string;
   category: NotificationCategoryId;
   type: NotificationType;
@@ -63,11 +66,13 @@ interface NotificationItem {
   isNew: boolean;
   priority: NotificationPriority;
   details: NotificationDetails;
+  targetPage?: PageType;
+  targetWidgetId?: string;
 }
 
 // ─── Meta Maps ─────────────────────────────────────────────────────────────────
 
-const CATEGORY_META: Record<NotificationCategoryId, {
+export const CATEGORY_META: Record<NotificationCategoryId, {
   title: string;
   icon: typeof TrendingUp;
   accent: string;
@@ -111,7 +116,7 @@ const CATEGORY_META: Record<NotificationCategoryId, {
   },
 };
 
-const TYPE_META: Record<NotificationType, {
+export const TYPE_META: Record<NotificationType, {
   label: string;
   color: string;
   icon: LucideIcon;
@@ -163,17 +168,15 @@ const TYPE_META: Record<NotificationType, {
   },
 };
 
-const PRIORITY_META: Record<NotificationPriority, { label: string; className: string }> = {
-  critical: { label: "Critical", className: "bg-rose-500/10 text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-800" },
-  high:     { label: "High",     className: "bg-orange-500/10 text-orange-600 border-orange-200 dark:text-orange-400 dark:border-orange-800" },
-  medium:   { label: "Medium",   className: "bg-sky-500/10 text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-800" },
-  low:      { label: "Low",      className: "bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:text-emerald-400 dark:border-emerald-800" },
-  information: { label: "Info", className: "bg-slate-500/10 text-slate-600 border-slate-200 dark:text-slate-400 dark:border-slate-700" },
+export const PRIORITY_META: Record<NotificationPriority, { label: string; className: string }> = {
+  high:     { label: "High",     className: "bg-rose-500/10 text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-800" },
+  medium:   { label: "Medium",   className: "bg-orange-500/10 text-orange-600 border-orange-200 dark:text-orange-400 dark:border-orange-800" },
+  low:      { label: "Low",      className: "bg-sky-500/10 text-sky-600 border-sky-200 dark:text-sky-400 dark:border-sky-800" },
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatRelativeTime(value: string) {
+export function formatRelativeTime(value: string) {
   const delta = Math.round((Date.now() - new Date(value).getTime()) / 1000);
   if (delta < 60)    return "Just now";
   if (delta < 3600)  return `${Math.floor(delta / 60)}m ago`;
@@ -182,7 +185,7 @@ function formatRelativeTime(value: string) {
   return `${Math.floor(delta / 86400)}d ago`;
 }
 
-function formatExactTime(value: string) {
+export function formatExactTime(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -192,28 +195,30 @@ function formatExactTime(value: string) {
   }).format(new Date(value));
 }
 
-function createId() {
+export function createId() {
   return `${Math.random().toString(36).slice(2, 9)}-${Date.now()}`;
 }
 
 // ─── Seed Data ─────────────────────────────────────────────────────────────────
 
-function buildInitialNotifications(): NotificationItem[] {
+export function buildInitialNotifications(): NotificationItem[] {
   const now = Date.now();
   return [
     {
       id: createId(),
       category: "business",
       type: "information",
-      title: "Daily revenue is 16% above target.",
+      title: "Daily revenue has seen a 16% Rise.",
       summary: "Your main product line outperformed expectations this morning.",
       timestamp: new Date(now - 1000 * 60 * 6).toISOString(),
       unread: true,
       isNew: false,
       priority: "high",
+      targetPage: "overview",
+      targetWidgetId: "metric-card-revenue",
       details: {
         completeDescription:
-          "Revenue increased across ads and organic channels after yesterday's launch campaign. The boost is strongest in North America.",
+          "Revenue has seen a Rise across ads and organic channels after yesterday's launch campaign. The Rise is strongest in North America.",
         whatHappened:
           "The new pricing test led to a stronger checkout conversion across high-intent segments.",
         whyItMatters:
@@ -229,14 +234,16 @@ function buildInitialNotifications(): NotificationItem[] {
       category: "insight",
       type: "ai",
       title: "AI detected a churn risk for last week's onboarding cohort.",
-      summary: "Engagement has dipped among users who signed up in the last 7 days.",
+      summary: "Engagement has seen a Drop among users who signed up in the last 7 days.",
       timestamp: new Date(now - 1000 * 60 * 20).toISOString(),
       unread: true,
       isNew: false,
-      priority: "critical",
+      priority: "high",
+      targetPage: "analytics",
+      targetWidgetId: "analytics-customer-retention",
       details: {
         completeDescription:
-          "The cohort is seeing a 24% drop in feature usage compared to the historical average. Early intervention can preserve conversion momentum.",
+          "The cohort is seeing a 24% Drop in feature usage compared to the historical average. Early intervention can preserve conversion momentum.",
         whatHappened:
           "Users who activated onboarding flows are not returning for their second session.",
         whyItMatters:
@@ -257,6 +264,8 @@ function buildInitialNotifications(): NotificationItem[] {
       unread: false,
       isNew: false,
       priority: "medium",
+      targetPage: "growth",
+      targetWidgetId: "growth-action-checklist",
       details: {
         completeDescription:
           "Customers who purchased in the last month are more likely to engage with the new add-on bundle you introduced.",
@@ -279,7 +288,9 @@ function buildInitialNotifications(): NotificationItem[] {
       timestamp: new Date(now - 1000 * 60 * 110).toISOString(),
       unread: false,
       isNew: false,
-      priority: "information",
+      priority: "low",
+      targetPage: "reports",
+      targetWidgetId: "reports-history-table",
       details: {
         completeDescription:
           "The report includes detailed metrics for sessions, conversions, and revenue trends across all active campaigns.",
@@ -303,6 +314,8 @@ function buildInitialNotifications(): NotificationItem[] {
       unread: false,
       isNew: false,
       priority: "high",
+      targetPage: "settings",
+      targetWidgetId: "settings-preferences",
       details: {
         completeDescription:
           "The system flagged an unauthorized access attempt and enforced additional authentication for the account.",
@@ -323,12 +336,14 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
   {
     category: "business",
     type: "information",
-    title: "Revenue forecast for today has been revised upward.",
-    summary: "The system updated the forecast after a strong morning performance.",
+    title: "Revenue forecast for today has seen a Rise.",
+    summary: "The system updated the forecast after a Rise in morning performance.",
     priority: "high",
+    targetPage: "growth",
+    targetWidgetId: "growth-revenue-forecast",
     details: {
       completeDescription:
-        "A recent surge in transactions pushed the daily forecast higher, especially in the subscription funnel.",
+        "A recent Rise in transactions pushed the daily forecast higher, especially in the subscription funnel.",
       whatHappened: "The revenue engine recalculated projections using the latest traffic and conversion data.",
       whyItMatters: "This helps you allocate resources and campaigns more confidently for the remainder of the day.",
       nextStep: "Review the latest revenue dashboard and validate your closing strategy for priority segments.",
@@ -342,6 +357,8 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
     title: "AI suggests updating your headline for better trial activation.",
     summary: "A recommendation was generated to improve first-time conversion.",
     priority: "medium",
+    targetPage: "insights",
+    targetWidgetId: "insights-grid",
     details: {
       completeDescription: "The AI model found that a more benefit-driven headline could increase trial starts by 8%.",
       whatHappened: "A content analysis compared your current headline against top-performing peers.",
@@ -354,9 +371,11 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
   {
     category: "growth",
     type: "opportunity",
-    title: "A cross-sell segment is performing 22% above average.",
-    summary: "A high-potential upsell audience just emerged.",
+    title: "A cross-sell segment has seen a 22% Rise above average.",
+    summary: "A high-potential upsell audience has emerged.",
     priority: "medium",
+    targetPage: "growth",
+    targetWidgetId: "growth-action-checklist",
     details: {
       completeDescription: "Returning customers who engaged with the webinar are converting at an above-average rate.",
       whatHappened: "The system detected a strong response pattern in an active growth segment.",
@@ -371,7 +390,9 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
     type: "report",
     title: "New export completed: executive summary.",
     summary: "Your summary report is ready for review and sharing.",
-    priority: "information",
+    priority: "low",
+    targetPage: "reports",
+    targetWidgetId: "reports-history-table",
     details: {
       completeDescription: "The executive summary now includes fresh KPIs, trend analysis, and the latest conversion status.",
       whatHappened: "An export job finished successfully and is available in your reports panel.",
@@ -387,6 +408,8 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
     title: "System update scheduled for tonight.",
     summary: "A maintenance window has been reserved for platform improvements.",
     priority: "low",
+    targetPage: "settings",
+    targetWidgetId: "settings-preferences",
     details: {
       completeDescription: "A behind-the-scenes system update will run during off-peak hours to minimize impact.",
       whatHappened: "The platform scheduled routine maintenance with a short downtime window.",
@@ -398,7 +421,7 @@ const TEMPLATE_ITEMS: Array<Omit<NotificationItem, "id" | "timestamp" | "unread"
   },
 ];
 
-function buildMockNotification(): NotificationItem {
+export function buildMockNotification(): NotificationItem {
   const template = TEMPLATE_ITEMS[Math.floor(Math.random() * TEMPLATE_ITEMS.length)];
   const now = new Date();
   return {
@@ -435,7 +458,13 @@ function UnreadBadge({ count, pulse }: { count: number; pulse: boolean }) {
 }
 
 /** Expanded detail grid shown inside a notification card */
-function NotificationDetail({ notification }: { notification: NotificationItem }) {
+function NotificationDetail({ 
+  notification,
+  onInvestigate
+}: { 
+  notification: NotificationItem;
+  onInvestigate?: () => void;
+}) {
   return (
     <div className="space-y-3 px-4 pb-4 pt-2">
       <p className="text-[12px] text-muted-foreground leading-relaxed">
@@ -459,15 +488,42 @@ function NotificationDetail({ notification }: { notification: NotificationItem }
           <p className="text-[12px] text-foreground leading-relaxed">{notification.details.exactTimestamp}</p>
         </div>
       </div>
+      {notification.targetPage && onInvestigate && (
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            size="sm"
+            className="h-7 text-[10px] font-bold gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={onInvestigate}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            Investigate Metric
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-function NotificationCenter() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export interface NotificationCenterProps {
+  setActivePage: (page: PageType) => void;
+  onNavigateToWidget: (page: PageType, widgetId: string) => void;
+  notifications: NotificationItem[];
+  loading: boolean;
+  setNotifications: React.Dispatch<React.SetStateAction<NotificationItem[]>>;
+  onExpandFullView: () => void;
+}
+
+function NotificationCenter({
+  setActivePage,
+  onNavigateToWidget,
+  notifications,
+  loading,
+  setNotifications,
+  onExpandFullView,
+}: NotificationCenterProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);   // tracks CSS enter/leave
   const [openCategories, setOpenCategories] = useState<NotificationCategoryId[]>([
@@ -476,20 +532,12 @@ function NotificationCenter() {
   const [expandedCards, setExpandedCards] = useState<string[]>([]);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [badgePulse, setBadgePulse] = useState(false);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const bellRef    = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const cardRefs   = useRef<Record<string, HTMLDivElement | null>>({});
   const firstRender = useRef(true);
-
-  // ── Load initial notifications ──────────────────────────────────────────────
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setNotifications(buildInitialNotifications());
-      setLoading(false);
-    }, 700);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   // ── Badge pulse when unread count changes ──────────────────────────────────
   const unreadCount = useMemo(
@@ -550,15 +598,7 @@ function NotificationCenter() {
     };
   }, [dropdownOpen, closeDropdown]);
 
-  // ── Real-time notifications every ~21 s ────────────────────────────────────
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      if (document.hidden) return;
-      const notification = buildMockNotification();
-      setNotifications((prev) => [notification, ...prev]);
-    }, 21000);
-    return () => window.clearInterval(interval);
-  }, []);
+
 
   // ── Highlight timeout ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -568,12 +608,25 @@ function NotificationCenter() {
   }, [highlightedId]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
-  const sortedNotifications = useMemo(
-    () => [...notifications].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    ),
-    [notifications],
-  );
+  const sortedNotifications = useMemo(() => {
+    const priorityWeight: Record<NotificationPriority, number> = {
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
+    return [...notifications].sort((a, b) => {
+      const priorityDiff = priorityWeight[b.priority] - priorityWeight[a.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+    });
+  }, [notifications]);
+
+  const filteredNotifications = useMemo(() => {
+    if (filter === "unread") {
+      return sortedNotifications.filter((n) => n.unread);
+    }
+    return sortedNotifications;
+  }, [sortedNotifications, filter]);
 
   const lastUpdated = useMemo(() => {
     if (sortedNotifications.length === 0) return "just now";
@@ -581,12 +634,12 @@ function NotificationCenter() {
   }, [sortedNotifications]);
 
   const groupedNotifications = useMemo(() => ({
-    business: sortedNotifications.filter((n) => n.category === "business"),
-    insight:  sortedNotifications.filter((n) => n.category === "insight"),
-    growth:   sortedNotifications.filter((n) => n.category === "growth"),
-    reports:  sortedNotifications.filter((n) => n.category === "reports"),
-    system:   sortedNotifications.filter((n) => n.category === "system"),
-  }), [sortedNotifications]);
+    business: filteredNotifications.filter((n) => n.category === "business"),
+    insight:  filteredNotifications.filter((n) => n.category === "insight"),
+    growth:   filteredNotifications.filter((n) => n.category === "growth"),
+    reports:  filteredNotifications.filter((n) => n.category === "reports"),
+    system:   filteredNotifications.filter((n) => n.category === "system"),
+  }), [filteredNotifications]);
 
   const categoryOrder: NotificationCategoryId[] = ["business", "insight", "growth", "reports", "system"];
 
@@ -607,6 +660,10 @@ function NotificationCenter() {
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, unread: false, isNew: false } : n),
     );
+  };
+
+  const clearNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const markAllAsRead = () => {
@@ -633,12 +690,21 @@ function NotificationCenter() {
     const isExpanded   = expandedCards.includes(notification.id);
     const isHighlighted = highlightedId === notification.id;
 
+    const handleCardNavigation = () => {
+      if (notification.targetPage) {
+        onNavigateToWidget(notification.targetPage, notification.targetWidgetId || "");
+        closeDropdown();
+      } else {
+        toggleCard(notification.id);
+      }
+    };
+
     return (
       <div
         key={notification.id}
         ref={(el) => { cardRefs.current[notification.id] = el; }}
         className={cn(
-          "group rounded-2xl border bg-card shadow-sm transition-all duration-200 overflow-hidden",
+          "group rounded-2xl border bg-card shadow-sm transition-all duration-200 overflow-hidden relative",
           "hover:-translate-y-px hover:shadow-md",
           notification.unread
             ? cn(categoryMeta.unreadBg, categoryMeta.unreadBorder)
@@ -646,8 +712,24 @@ function NotificationCenter() {
           isHighlighted && "ring-2 ring-primary/40 ring-offset-1",
         )}
       >
+        {/* Individual X close/dismiss button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            clearNotification(notification.id);
+          }}
+          className="absolute top-3.5 right-3.5 text-muted-foreground hover:text-destructive opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1 rounded-md z-10 cursor-pointer"
+          title="Dismiss alert"
+        >
+          <X className="h-3 w-3" />
+        </button>
+
         {/* Card header */}
-        <div className="flex flex-col gap-2.5 p-4">
+        <div 
+          onClick={handleCardNavigation}
+          className="flex flex-col gap-2.5 p-4 cursor-pointer"
+        >
           {/* Top row: icon + title + badges */}
           <div className="flex items-start gap-3">
             <span className={cn(
@@ -657,7 +739,7 @@ function NotificationCenter() {
               <TypeIcon className="h-4 w-4" />
             </span>
 
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pr-10">
               <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
                 <h3 className={cn(
                   "text-[13px] leading-snug",
@@ -665,11 +747,13 @@ function NotificationCenter() {
                 )}>
                   {notification.title}
                 </h3>
-                {notification.isNew && (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.15em] text-primary">
-                    New
-                  </span>
-                )}
+                <span className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]",
+                  priorityMeta.className,
+                )}>
+                  <span className="h-1 w-1 rounded-full bg-current" />
+                  {priorityMeta.label}
+                </span>
               </div>
               <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                 {notification.summary}
@@ -677,16 +761,9 @@ function NotificationCenter() {
             </div>
           </div>
 
-          {/* Bottom row: priority + timestamp + actions */}
+          {/* Bottom row: timestamp + actions */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
             <div className="flex items-center gap-1.5">
-              <span className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-                priorityMeta.className,
-              )}>
-                <span className="h-1 w-1 rounded-full bg-current" />
-                {priorityMeta.label}
-              </span>
               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {formatRelativeTime(notification.timestamp)}
@@ -697,16 +774,22 @@ function NotificationCenter() {
               {notification.unread && (
                 <button
                   type="button"
-                  onClick={() => markAsRead(notification.id)}
-                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAsRead(notification.id);
+                  }}
+                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   Mark read
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => toggleCard(notification.id)}
-                className="flex items-center gap-0.5 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCard(notification.id);
+                }}
+                className="flex items-center gap-0.5 text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer"
               >
                 {isExpanded ? "Collapse" : "Expand"}
                 <ChevronDown className={cn(
@@ -724,7 +807,15 @@ function NotificationCenter() {
           isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
         )}>
           <div className="overflow-hidden border-t border-border/50">
-            <NotificationDetail notification={notification} />
+            <NotificationDetail 
+              notification={notification} 
+              onInvestigate={() => {
+                if (notification.targetPage) {
+                  onNavigateToWidget(notification.targetPage, notification.targetWidgetId || "");
+                  closeDropdown();
+                }
+              }}
+            />
           </div>
         </div>
       </div>
@@ -769,7 +860,7 @@ function NotificationCenter() {
           style={{ maxHeight: "76vh" }}
         >
           {/* Sticky header */}
-          <div className="sticky top-0 z-20 rounded-t-[22px] border-b border-border/70 bg-card/95 px-5 py-4 backdrop-blur-sm shrink-0">
+          <div className="sticky top-0 z-20 rounded-t-[22px] border-b border-border/70 bg-card/95 px-5 pt-4 pb-0 backdrop-blur-sm shrink-0">
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -785,6 +876,16 @@ function NotificationCenter() {
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
+                {notifications.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[11px] h-7 px-2.5 text-muted-foreground hover:text-destructive"
+                    onClick={() => setNotifications([])}
+                  >
+                    Clear all
+                  </Button>
+                )}
                 {unreadCount > 0 && (
                   <Button
                     variant="ghost"
@@ -797,6 +898,18 @@ function NotificationCenter() {
                 )}
                 <button
                   type="button"
+                  onClick={() => {
+                    onExpandFullView();
+                    closeDropdown();
+                  }}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  title="Expand to Full View"
+                  aria-label="Expand to Full View"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => closeDropdown()}
                   className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   aria-label="Close"
@@ -804,6 +917,34 @@ function NotificationCenter() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+            </div>
+
+            {/* Filter buttons */}
+            <div className="flex border-b border-border/40 mt-3.5">
+              <button
+                type="button"
+                onClick={() => setFilter("all")}
+                className={cn(
+                  "flex-1 pb-2 text-[11px] font-semibold border-b-2 text-center transition-colors cursor-pointer",
+                  filter === "all"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                All ({notifications.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilter("unread")}
+                className={cn(
+                  "flex-1 pb-2 text-[11px] font-semibold border-b-2 text-center transition-colors cursor-pointer",
+                  filter === "unread"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Unread ({unreadCount})
+              </button>
             </div>
           </div>
 
@@ -824,15 +965,19 @@ function NotificationCenter() {
                   </div>
                 ))}
               </div>
-            ) : sortedNotifications.length === 0 ? (
+            ) : filteredNotifications.length === 0 ? (
               /* Empty state */
-              <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/30 p-8 text-center">
+              <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/30 p-8 text-center animate-fade-in">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
                   <Bell className="h-6 w-6" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">You're all caught up!</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">New updates and alerts will appear here.</p>
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {filter === "unread" ? "No unread notifications" : "You're all caught up!"}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {filter === "unread" ? "Switch to 'All' to view older read alerts." : "New updates and alerts will appear here."}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -897,6 +1042,24 @@ function NotificationCenter() {
               })
             )}
           </div>
+
+          {/* Footer block to expand to full screen */}
+          {notifications.length > 0 && (
+            <div className="p-3 border-t border-border/70 bg-muted/20 flex justify-center shrink-0 rounded-b-[22px]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs font-semibold gap-1.5 text-primary hover:text-primary/80 hover:bg-primary/5 rounded-xl cursor-pointer"
+                onClick={() => {
+                  onExpandFullView();
+                  closeDropdown();
+                }}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                Expand to Full Screen View
+              </Button>
+            </div>
+          )}
 
         </div>
       )}

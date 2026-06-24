@@ -25,7 +25,12 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import SignUpPage from "./auth/Signup";
 import SignInPage from "./auth/SignIn";
 import { searchIndex, SearchItem } from "./utils/searchIndex";
-import NotificationCenter from "./components/NotificationCenter";
+import NotificationCenter, {
+  NotificationItem,
+  buildInitialNotifications,
+  buildMockNotification,
+} from "./components/NotificationCenter";
+import NotificationsModal from "./components/NotificationsModal";
 
 
 import {
@@ -551,10 +556,45 @@ export default function App() {
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
 
+  // Notifications state & background generator
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+
+  // Load initial notifications
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setNotifications(buildInitialNotifications());
+      setNotificationsLoading(false);
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // Generate real-time notifications every 21 seconds
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.hidden) return;
+      const notification = buildMockNotification();
+      setNotifications((prev) => [notification, ...prev]);
+    }, 21000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+
+  // Scroll active search item into view when selectedIndex changes
+  useEffect(() => {
+    if (isSearchOpen && resultsContainerRef.current) {
+      const activeEl = resultsContainerRef.current.querySelector('[data-selected="true"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [selectedIndex, isSearchOpen]);
   const [recentSearchIds, setRecentSearchIds] = useState<string[]>([]);
 
   // Load recents on mount/open
@@ -1015,7 +1055,6 @@ export default function App() {
           onChanged={loadProjects}
         />
       )}
-
       {sidebarOpen && (
         <button
           type="button"
@@ -1030,11 +1069,11 @@ export default function App() {
         fixed inset-y-0 left-0 z-30 flex flex-col bg-card border-r border-border shadow-card
         transition-all duration-300 ease-in-out
         ${sidebarOpen ? "w-60 translate-x-0" : "-translate-x-full"}
-        lg:relative lg:translate-x-0 lg:w-60
-        md:relative md:translate-x-0 md:w-[72px] md:flex
+        lg:relative lg:translate-x-0 lg:w-60 lg:z-30
+        md:relative md:translate-x-0 md:w-[72px] md:flex md:z-30
       `}>
         {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border">
+        <div className="flex items-center gap-3 px-5 border-b border-border h-[72px] shrink-0">
           <div className="shrink-0 w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
             <TrendingUp className="w-4 h-4 text-primary-foreground" />
           </div>
@@ -1113,11 +1152,32 @@ export default function App() {
           />
         </div>
       </aside>
-
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0 relative z-10">
+        {showNotificationsModal && (
+          <NotificationsModal
+            isOpen={showNotificationsModal}
+            onClose={() => setShowNotificationsModal(false)}
+            notifications={notifications}
+            setNotifications={setNotifications}
+            onNavigateToWidget={(page, widgetId) => {
+              setActivePage(page);
+              setShowNotificationsModal(false);
+              if (widgetId) {
+                setTimeout(() => {
+                  const el = document.getElementById(widgetId);
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    el.classList.add("search-highlight");
+                    setTimeout(() => el.classList.remove("search-highlight"), 2500);
+                  }
+                }, 150);
+              }
+            }}
+          />
+        )}
         {/* Navbar — cleaner, Client/Theme removed */}
-        <header className="shrink-0 flex items-center gap-4 px-6 py-4 bg-card border-b border-border shadow-xs">
+        <header className="shrink-0 flex items-center gap-4 px-6 bg-card border-b border-border shadow-xs h-[72px]">
           <button
             type="button"
             className="lg:hidden md:hidden text-muted-foreground hover:text-foreground"
@@ -1167,7 +1227,7 @@ export default function App() {
                   <span className="text-xs hidden sm:inline">Search…</span>
                 </button>
               ) : (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted border border-primary rounded-lg transition-all duration-300 w-[240px] sm:w-80 md:w-96 h-9 shadow-sm animate-in fade-in slide-in-from-right-3 duration-200">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted border border-primary rounded-lg transition-all duration-300 w-[280px] sm:w-[400px] md:w-[460px] h-9 shadow-sm animate-in fade-in slide-in-from-right-3 duration-200">
                   <Search className="w-4 h-4 text-primary shrink-0" />
                   <input
                     type="text"
@@ -1189,8 +1249,8 @@ export default function App() {
 
               {/* Dropdown Menu */}
               {isSearchOpen && (
-                <div className="absolute top-full right-0 mt-2 w-[280px] sm:w-[400px] bg-card border border-border rounded-xl shadow-elevated overflow-hidden flex flex-col max-h-[45vh] animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="flex-1 overflow-y-auto p-2 space-y-3.5 scrollbar-thin">
+                <div className="absolute top-full right-0 mt-2 w-[280px] sm:w-[400px] md:w-[460px] bg-card border border-border rounded-xl shadow-elevated overflow-hidden flex flex-col max-h-[45vh] animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div ref={resultsContainerRef} className="flex-1 overflow-y-auto p-2 space-y-3.5 scrollbar-thin">
                     {filteredItems.length === 0 ? (
                       <div className="py-8 text-center">
                         <p className="text-xs text-muted-foreground">No matches for &quot;{query}&quot;</p>
@@ -1225,6 +1285,7 @@ export default function App() {
                                     type="button"
                                     onClick={() => handleSearchSelect(item)}
                                     onMouseEnter={() => setSelectedIndex(globalIdx)}
+                                    data-selected={isSelected ? "true" : "false"}
                                     className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-xl transition-all duration-150 pr-8 ${
                                       isSelected
                                         ? "bg-muted text-foreground"
@@ -1300,7 +1361,26 @@ export default function App() {
             </DropdownMenu>
 
             {/* Notifications */}
-            <NotificationCenter />
+            <NotificationCenter
+              setActivePage={setActivePage}
+              onNavigateToWidget={(page, widgetId) => {
+                setActivePage(page);
+                if (widgetId) {
+                  setTimeout(() => {
+                    const el = document.getElementById(widgetId);
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      el.classList.add("search-highlight");
+                      setTimeout(() => el.classList.remove("search-highlight"), 2500);
+                    }
+                  }, 150);
+                }
+              }}
+              notifications={notifications}
+              loading={notificationsLoading}
+              setNotifications={setNotifications}
+              onExpandFullView={() => setShowNotificationsModal(true)}
+            />
           </div>
         </header>
 
