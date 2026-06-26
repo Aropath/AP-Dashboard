@@ -28,7 +28,7 @@ import {
 
 // Sparkline mini chart
 function Sparkline({ data, color = "#4f46e5", positive = true }: { data: number[]; color?: string; positive?: boolean }) {
-  const chartColor = positive ? color : "#dc2626";
+  const chartColor = positive ? color : "#ff10f0";
   const normalized = data.map((v, i) => ({ v, i }));
   return (
     <ResponsiveContainer width="100%" height={40}>
@@ -67,7 +67,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
             : "text-danger-DEFAULT bg-danger-light"
             }`}
           style={{
-            color: isPositive ? "#16a34a" : "#ff10f0",
+            color: isPositive ? "#16a34a" : "#b00000",
             backgroundColor: isPositive ? "#dcfce7" : "#fee2e2",
           }}
         >
@@ -83,7 +83,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
   );
 }
 
-const COLORS = ["#4f46e5", "#6ee7b7", "#fbbf24"];
+const COLORS = ["#00c4d4", "#00d4e8", "#fbbf24"];
 
 type topCountry = {
   country: string;
@@ -365,7 +365,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                     innerRadius={50}
                     outerRadius={75}
                     paddingAngle={3}
-                    dataKey="value"
+                    dataKey="sessions"
                   >
                     {deviceBreakdown.map((entry, index) => (
                       <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
@@ -379,7 +379,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
                     <span className="text-sm text-muted-foreground flex-1">
-                      {item.name} ({item.sessions.toLocaleString()})
+                      {item.name} ({(item.sessions ?? 0).toLocaleString()})
                     </span>
                     <span className="text-sm font-semibold text-foreground">{item.value}%</span>
                   </div>
@@ -451,7 +451,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                     <span className="text-xs text-muted-foreground mr-2">Dropoff</span>
                     <span
                       className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                      style={{ color: "#dc2626", backgroundColor: "#fee2e2" }}
+                      style={{ color: "#b00000", backgroundColor: "#fee2e2" }}
                     >
                       {step.dropoff}%
                     </span>
@@ -474,7 +474,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
             const isDone = doneInsights.has(insight.id);
             const priorityStyle =
               insight.priority === "High"
-                ? { color: "#dc2626", bg: "#fee2e2" }
+                ? { color: "#b00000", bg: "#fee2e2" }
                 : insight.priority === "Medium"
                   ? { color: "#d97706", bg: "#fef3c7" }
                   : { color: "#16a34a", bg: "#dcfce7" };

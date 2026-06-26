@@ -4,6 +4,26 @@
  * plus a broad set of commonly seen countries in analytics dashboards.
  */
 export const countryFlags: Record<string, string> = {
+  // ── Country codes ─────────────────────────────────────────────────────────
+  IN: "🇮🇳",
+  US: "🇺🇸",
+  UK: "🇬🇧",
+  GB: "🇬🇧",
+  CA: "🇨🇦",
+  AU: "🇦🇺",
+  AE: "🇦🇪",
+  SG: "🇸🇬",
+  DE: "🇩🇪",
+  FR: "🇫🇷",
+  IT: "🇮🇹",
+  ES: "🇪🇸",
+  NL: "🇳🇱",
+  CN: "🇨🇳",
+  JP: "🇯🇵",
+  KR: "🇰🇷",
+  BR: "🇧🇷",
+  MX: "🇲🇽",
+
   // ── Americas ──────────────────────────────────────────────────────────────
   "United States":        "🇺🇸",
   "Canada":               "🇨🇦",

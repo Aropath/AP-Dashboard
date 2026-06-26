@@ -591,7 +591,7 @@ export default function SettingsPage({ currency: currencyProp = "INR", onCurrenc
                     : "border-border bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
+                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.58_0.155_200)] shrink-0" />
                 Teal
               </button>
               <button

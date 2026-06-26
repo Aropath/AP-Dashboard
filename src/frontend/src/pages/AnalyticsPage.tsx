@@ -26,7 +26,7 @@ import { ArrowUpDown, ArrowUpRight } from "lucide-react";
 type SortKey = "sessions" | "conversions" | "convRate" | "revenue";
 type SortDir = "asc" | "desc";
 
-const PRODUCT_COLORS = ["#4f46e5", "#5b52e5", "#665de5", "#7168e5", "#7c73e5", "#8880e8"];
+const PRODUCT_COLORS = ["#00b8cc", "#00c4d4", "#00cfdc", "#00d9e4", "#00e4ec", "#00edf3"];
 
 type Props = {
   trafficAnalysis: any[];
@@ -114,7 +114,7 @@ export default function AnalyticsPage({
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
 
             <Line type="monotone" dataKey="sessions" stroke="#4f46e5" strokeWidth={2} dot={false} name="Sessions" />
-            <Line type="monotone" dataKey="pageviews" stroke="#6ee7b7" strokeWidth={2} dot={false} name="Pageviews" />
+            <Line type="monotone" dataKey="pageviews" stroke="#00d4e8" strokeWidth={2} dot={false} name="Pageviews" />
             <Line type="monotone" dataKey="uniqueVisitors" stroke="#fbbf24" strokeWidth={2} dot={false} name="Unique Visitors" />
           </LineChart>
         </ResponsiveContainer>
