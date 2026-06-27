@@ -113,7 +113,7 @@ export default function InsightsPage() {
       </div>
 
       {/* Insights Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div id="insights-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map((insight) => {
           const isDone = doneInsights.has(insight.id);
           const pStyle = priorityStyle(insight.priority);

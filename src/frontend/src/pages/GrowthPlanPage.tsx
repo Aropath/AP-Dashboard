@@ -62,7 +62,7 @@ export default function GrowthPlanPage({ currency = "USD" }: { currency?: string
       {/* Main two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: 30-Day Checklist (~60%) */}
-        <div className="lg:col-span-3 bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+        <div id="growth-action-checklist" className="lg:col-span-3 bg-card rounded-2xl shadow-card border border-border overflow-hidden">
           <div className="p-5 border-b border-border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground">30-Day Action Checklist</h3>
@@ -155,7 +155,7 @@ export default function GrowthPlanPage({ currency = "USD" }: { currency?: string
       </div>
 
       {/* Revenue Forecast */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="growth-revenue-forecast" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Revenue Forecast</h3>
           <span
