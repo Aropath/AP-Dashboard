@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   X,
   Bell,
@@ -46,6 +46,14 @@ export default function NotificationsModal({
     }
   });
 
+  const [sessionReadIds, setSessionReadIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (isOpen) {
+      setSessionReadIds(new Set());
+    }
+  }, [isOpen]);
+
   const toggleCategory = (category: NotificationCategoryId) => {
     setCollapsedCategories((prev) => {
       const next = prev.includes(category)
@@ -78,10 +86,10 @@ export default function NotificationsModal({
 
   const filteredNotifications = useMemo(() => {
     if (filter === "unread") {
-      return sortedNotifications.filter((n) => n.unread);
+      return sortedNotifications.filter((n) => n.unread || sessionReadIds.has(n.id));
     }
     return sortedNotifications;
-  }, [sortedNotifications, filter]);
+  }, [sortedNotifications, filter, sessionReadIds]);
 
   const groupedNotifications = useMemo(() => ({
     business: filteredNotifications.filter((n) => n.category === "business"),
@@ -97,6 +105,22 @@ export default function NotificationsModal({
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, unread: false, isNew: false } : n),
     );
+    setSessionReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  const markAsUnread = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => n.id === id ? { ...n, unread: true } : n),
+    );
+    setSessionReadIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const clearNotification = (id: string) => {
@@ -297,10 +321,10 @@ export default function NotificationsModal({
                                 e.stopPropagation();
                                 clearNotification(notification.id);
                               }}
-                              className="absolute top-3.5 right-3.5 text-muted-foreground hover:text-destructive opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity p-1 rounded-md z-10 cursor-pointer"
+                              className="absolute top-3.5 right-3.5 text-[11px] font-semibold text-muted-foreground hover:text-destructive transition-colors z-10 cursor-pointer"
                               title="Dismiss alert"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              Dismiss
                             </button>
 
                             {/* Left Section: Icon, Title, Priority, Summary */}
@@ -328,6 +352,20 @@ export default function NotificationsModal({
                                       <span className="h-1 w-1 rounded-full bg-current" />
                                       {priorityMeta.label}
                                     </span>
+                                    {!notification.unread && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          markAsUnread(notification.id);
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-[0.1em] bg-emerald-500/10 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-700 transition-colors cursor-pointer dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/50"
+                                        title="Click to mark as unread"
+                                      >
+                                        <span className="h-1 w-1 rounded-full bg-current" />
+                                        Read
+                                      </button>
+                                    )}
                                   </div>
                                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                                     {notification.summary}
@@ -374,7 +412,7 @@ export default function NotificationsModal({
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0">
-                                  {notification.unread && (
+                                  {notification.unread ? (
                                     <button
                                       type="button"
                                       onClick={() => markAsRead(notification.id)}
@@ -382,7 +420,22 @@ export default function NotificationsModal({
                                     >
                                       Mark read
                                     </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => markAsUnread(notification.id)}
+                                      className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                                    >
+                                      Mark unread
+                                    </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => clearNotification(notification.id)}
+                                    className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                                  >
+                                    Dismiss
+                                  </button>
                                   {notification.targetPage && (
                                     <Button
                                       type="button"

@@ -533,6 +533,7 @@ function NotificationCenter({
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [badgePulse, setBadgePulse] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [sessionReadIds, setSessionReadIds] = useState<Set<string>>(new Set());
 
   const bellRef    = useRef<HTMLButtonElement | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
@@ -555,6 +556,7 @@ function NotificationCenter({
   // ── Dropdown open/close with animation ────────────────────────────────────
   const openDropdown = useCallback(() => {
     setDropdownOpen(true);
+    setSessionReadIds(new Set());
     // Small rAF delay so the element mounts before we flip visibility
     requestAnimationFrame(() => setDropdownVisible(true));
   }, []);
@@ -623,10 +625,10 @@ function NotificationCenter({
 
   const filteredNotifications = useMemo(() => {
     if (filter === "unread") {
-      return sortedNotifications.filter((n) => n.unread);
+      return sortedNotifications.filter((n) => n.unread || sessionReadIds.has(n.id));
     }
     return sortedNotifications;
-  }, [sortedNotifications, filter]);
+  }, [sortedNotifications, filter, sessionReadIds]);
 
   const lastUpdated = useMemo(() => {
     if (sortedNotifications.length === 0) return "just now";
@@ -660,6 +662,22 @@ function NotificationCenter({
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, unread: false, isNew: false } : n),
     );
+    setSessionReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
+
+  const markAsUnread = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => n.id === id ? { ...n, unread: true } : n),
+    );
+    setSessionReadIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
 
   const clearNotification = (id: string) => {
@@ -712,17 +730,17 @@ function NotificationCenter({
           isHighlighted && "ring-2 ring-primary/40 ring-offset-1",
         )}
       >
-        {/* Individual X close/dismiss button */}
+        {/* Individual dismiss button */}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             clearNotification(notification.id);
           }}
-          className="absolute top-3.5 right-3.5 text-muted-foreground hover:text-destructive opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1 rounded-md z-10 cursor-pointer"
+          className="absolute top-3.5 right-3.5 text-[10px] font-semibold text-muted-foreground hover:text-destructive transition-colors z-10 cursor-pointer"
           title="Dismiss alert"
         >
-          <X className="h-3 w-3" />
+          Dismiss
         </button>
 
         {/* Card header */}
@@ -754,6 +772,20 @@ function NotificationCenter({
                   <span className="h-1 w-1 rounded-full bg-current" />
                   {priorityMeta.label}
                 </span>
+                {!notification.unread && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAsUnread(notification.id);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em] bg-emerald-500/10 text-emerald-600 border-emerald-200 hover:bg-emerald-500/20 hover:text-emerald-700 transition-colors cursor-pointer dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/50"
+                    title="Click to mark as unread"
+                  >
+                    <span className="h-1 w-1 rounded-full bg-current" />
+                    Read
+                  </button>
+                )}
               </div>
               <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
                 {notification.summary}
@@ -771,7 +803,7 @@ function NotificationCenter({
             </div>
 
             <div className="flex items-center gap-2">
-              {notification.unread && (
+              {notification.unread ? (
                 <button
                   type="button"
                   onClick={(e) => {
@@ -782,7 +814,28 @@ function NotificationCenter({
                 >
                   Mark read
                 </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAsUnread(notification.id);
+                  }}
+                  className="text-[10px] font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  Mark unread
+                </button>
               )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearNotification(notification.id);
+                }}
+                className="text-[10px] font-semibold text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
               <button
                 type="button"
                 onClick={(e) => {
