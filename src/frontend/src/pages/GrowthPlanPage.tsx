@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { fetchGrowthChecklist } from "../services/fetchMetrics";
 import { useState } from "react";
 import { formatCurrencyCompact } from "../services/currencies";
 import {
@@ -15,9 +17,10 @@ import {
 } from "recharts";
 import { CheckCircle2, Circle, TrendingUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { growthTasks, roiData, revenueForecast } from "../mockData";
+import { roiData, revenueForecast } from "../mockData";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
+
 
 const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
   Easy: { color: "#16a34a", bg: "#dcfce7" },
@@ -25,10 +28,29 @@ const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
   Hard: { color: "#dc2626", bg: "#fee2e2" },
 };
 
-export default function GrowthPlanPage({ currency = "USD" }: { currency?: string }) {
-  const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set([1, 3, 5, 6, 7]));
+export default function GrowthPlanPage() {
+  const [growthTasks, setGrowthTasks] = useState<any[]>([]);
+const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 
-  function toggleTask(id: number) {
+useEffect(() => {
+    async function loadChecklist() {
+      const data = await fetchGrowthChecklist();
+      
+      setGrowthTasks(data.items);
+
+      setCompletedTasks(
+        new Set(
+          data.items
+            .filter((item: any) => item.completed)
+            .map((item: any) => item.id)
+        )
+      );
+    }
+
+    loadChecklist();
+  }, []);
+
+  function toggleTask(id: string) {
     setCompletedTasks((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -96,7 +118,7 @@ export default function GrowthPlanPage({ currency = "USD" }: { currency?: string
                         isDone ? "line-through text-muted-foreground" : "text-foreground"
                       }`}
                     >
-                      {task.task}
+                      {task.title}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -110,7 +132,7 @@ export default function GrowthPlanPage({ currency = "USD" }: { currency?: string
                       className="text-xs font-semibold px-2 py-0.5 rounded-md"
                       style={{ color: "#4f46e5", backgroundColor: "#eef2ff" }}
                     >
-                      {task.impact}
+                      {task.estimatedRevenueLift}
                     </span>
                   </div>
                 </div>
