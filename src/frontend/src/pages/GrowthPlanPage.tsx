@@ -27,7 +27,11 @@ const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
   Hard: { color: "#dc2626", bg: "#fee2e2" },
 };
 
-export default function GrowthPlanPage() {
+type Props = {
+  currency?: string;
+};
+
+export default function GrowthPlanPage({currency = "USD",}: Props) {
   const [growthTasks, setGrowthTasks] = useState<any[]>([]);
 const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 

@@ -1029,7 +1029,7 @@ export default function App() {
           />
         );
       case "insights": return <InsightsPage />;
-      case "growth": return <GrowthPlanPage {...({ currency } as any)} />;
+      case "growth": return <GrowthPlanPage currency={currency}/>;
       case "reports": return <ReportsPage />;
       case "settings": return <SettingsPage currency={currency} onCurrencyChange={setCurrency} />;
       case "subscription": return <SubscriptionPage />;
