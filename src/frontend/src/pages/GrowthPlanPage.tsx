@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { fetchGrowthChecklist } from "../services/fetchMetrics";
-import { useState } from "react";
 import { formatCurrencyCompact } from "../services/currencies";
 import {
   BarChart,
@@ -62,6 +61,9 @@ useEffect(() => {
   const completedCount = completedTasks.size;
   const totalTasks = growthTasks.length;
   const progressPct = Math.round((completedCount / totalTasks) * 100);
+
+  // default currency for formatting
+  const currency = "INR";
 
   // Forecast chart with both actual and projected
   const forecastChartData = revenueForecast.map((d) => ({
