@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Check, RefreshCw, X, Plus, Copy, Eye, EyeOff,
-  KeyRound, Trash2, AlertTriangle,
+  KeyRound, Trash2, AlertTriangle, ChevronsUpDown,
 } from "lucide-react";
 // import { BrevoAutomation } from "../components/BrevoAutomation";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,18 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
 import { useAuth } from "../context/AuthContext";
+import { currencies as currencyMap, currencyList } from "../services/currencies";
+import { useTheme } from "../context/ThemeContext";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 const TRACKER_BASE_URL = import.meta.env.VITE_TRACKER_BASE_URL || "http://localhost:4000";
-
-const currencies = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "DKK"];
 const timezones = [
   "UTC (Coordinated Universal Time)",
   "America/New_York (EST/EDT)",
@@ -48,6 +54,94 @@ interface NewKeyReveal {
 }
 
 
+// ─── Currency Combobox ────────────────────────────────────────────────────────
+
+const pinnedOrder = ["INR", "USD", "GBP", "EUR", "AED", "SGD", "AUD", "CAD"];
+const orderedCurrencyList = [
+  ...pinnedOrder.filter((c) => currencyList.includes(c)),
+  ...currencyList.filter((c) => !pinnedOrder.includes(c)),
+];
+
+function CurrencyCombobox({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = search.trim()
+    ? orderedCurrencyList.filter((c) => {
+        const info = currencyMap[c];
+        const q = search.toLowerCase();
+        return (
+          c.toLowerCase().includes(q) ||
+          info.name.toLowerCase().includes(q) ||
+          info.shortLabel.toLowerCase().includes(q)
+        );
+      })
+    : orderedCurrencyList;
+
+  const selectedInfo = currencyMap[value];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-52 h-9 justify-between text-sm font-normal"
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <span className="font-mono text-muted-foreground shrink-0 text-base leading-none">
+              {selectedInfo?.symbol}
+            </span>
+            <span className="truncate">{selectedInfo?.shortLabel ?? value}</span>
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <Command>
+          <CommandInput
+            placeholder="Search currency…"
+            value={search}
+            onValueChange={setSearch}
+            className="text-sm"
+          />
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandEmpty className="py-4 text-center text-sm text-muted-foreground">
+              No currency found.
+            </CommandEmpty>
+            <CommandGroup>
+              {filtered.map((c) => {
+                const info = currencyMap[c];
+                return (
+                  <CommandItem
+                    key={c}
+                    value={c}
+                    onSelect={(val) => {
+                      onChange(val.toUpperCase());
+                      setOpen(false);
+                      setSearch("");
+                    }}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <span className="font-mono w-5 shrink-0 text-muted-foreground text-center text-base leading-none">
+                      {info.symbol}
+                    </span>
+                    <span className="flex-1 truncate">{info.shortLabel}</span>
+                    {value === c && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // ─── Helpers (match existing SettingsPage pattern exactly) ──────────────────
 
 const token = () => {
@@ -66,11 +160,12 @@ const safeFetch = async (url: string, options: RequestInit = {}): Promise<any> =
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function SettingsPage() {
+export default function SettingsPage({ currency: currencyProp = "INR", onCurrencyChange }: { currency?: string; onCurrencyChange?: (c: string) => void }) {
   const { user } = useAuth();
+  const { theme, mode, setTheme, toggleMode } = useTheme();
 
   // Preferences
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState(currencyProp);
   const [timezone, setTimezone] = useState("Asia/Kolkata (IST)");
   const [saved, setSaved] = useState(false);
 
@@ -215,7 +310,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-6">
 
       {/* ── SDK Tracking Projects ──────────────────────────────────────── */}
-      <section>
+      <section id="settings-tracking-projects">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           SDK &amp; Tracking
         </h2>
@@ -450,7 +545,7 @@ export default function SettingsPage() {
       </section> */}
 
       {/* ── Preferences ────────────────────────────────────────────────── */}
-      <section>
+      <section id="settings-preferences">
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
           Preferences
         </h2>
@@ -460,14 +555,10 @@ export default function SettingsPage() {
               <Label className="text-sm font-medium text-foreground">Currency</Label>
               <p className="text-xs text-muted-foreground mt-0.5">Used for all revenue displays</p>
             </div>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger className="w-32 h-9 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {currencies.map((c) => (
-                  <SelectItem key={c} value={c} className="text-sm">{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CurrencyCombobox
+              value={currency}
+              onChange={(c) => { setCurrency(c); onCurrencyChange?.(c); }}
+            />
           </div>
           <div className="border-t border-border" />
           <div className="flex items-center justify-between gap-4">
@@ -483,6 +574,53 @@ export default function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="border-t border-border" />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-medium text-foreground">Theme Accent Color</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Customize the dashboard primary color brand accent</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme("teal")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  theme === "teal"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.58_0.155_200)] shrink-0" />
+                Teal
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme("indigo")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  theme === "indigo"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[oklch(0.511_0.22_264)] shrink-0" />
+                Indigo
+              </button>
+            </div>
+          </div>
+          <div className="border-t border-border" />
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm font-medium text-foreground">Appearance Mode</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Switch layout styling between light and dark modes</p>
+            </div>
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold border border-border bg-muted hover:bg-muted/80 text-foreground transition-all"
+            >
+              {mode === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            </button>
           </div>
         </div>
       </section>

@@ -68,7 +68,7 @@ export default function SignUpPage({ onSignUp, onGoToSignIn }: SignUpPageProps) 
         aria-hidden="true"
         className="pointer-events-none fixed top-0 right-0 w-96 h-96 rounded-full opacity-20"
         style={{
-          background: "radial-gradient(circle, oklch(0.72 0.14 195), transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.72 0.14 200), transparent 70%)",
           transform: "translate(30%, -30%)",
         }}
       />

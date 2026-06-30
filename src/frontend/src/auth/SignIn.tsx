@@ -57,7 +57,7 @@ export default function SignInPage({ onSignIn, onGoToSignUp }: SignInPageProps) 
         aria-hidden="true"
         className="pointer-events-none fixed top-0 right-0 w-96 h-96 rounded-full opacity-20"
         style={{
-          background: "radial-gradient(circle, oklch(0.72 0.14 195), transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.72 0.14 200), transparent 70%)",
           transform: "translate(30%, -30%)",
         }}
       />
@@ -65,7 +65,7 @@ export default function SignInPage({ onSignIn, onGoToSignUp }: SignInPageProps) 
         aria-hidden="true"
         className="pointer-events-none fixed bottom-0 left-0 w-80 h-80 rounded-full opacity-15"
         style={{
-          background: "radial-gradient(circle, oklch(0.65 0.12 205), transparent 70%)",
+          background: "radial-gradient(circle, oklch(0.65 0.12 200), transparent 70%)",
           transform: "translate(-30%, 30%)",
         }}
       />

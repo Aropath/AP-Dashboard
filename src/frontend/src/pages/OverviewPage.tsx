@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { fetchLatestMetrics } from "../services/fetchMetrics";
 import { fetchDashboardData } from "../services/fetchMetrics";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   LineChart,
   Line,
@@ -23,16 +23,12 @@ import {
   sessionsLast30Days,
   metricsSparklines,
   revenueSparkline,
-  // trafficSources,
-  deviceBreakdown,
-  topCountries,
-  conversionFunnel,
   aiInsights,
 } from "../mockData";
 
 // Sparkline mini chart
 function Sparkline({ data, color = "#4f46e5", positive = true }: { data: number[]; color?: string; positive?: boolean }) {
-  const chartColor = positive ? color : "#dc2626";
+  const chartColor = positive ? color : "#ff10f0";
   const normalized = data.map((v, i) => ({ v, i }));
   return (
     <ResponsiveContainer width="100%" height={40}>
@@ -71,7 +67,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
             : "text-danger-DEFAULT bg-danger-light"
             }`}
           style={{
-            color: isPositive ? "#16a34a" : "#dc2626",
+            color: isPositive ? "#16a34a" : "#b00000",
             backgroundColor: isPositive ? "#dcfce7" : "#fee2e2",
           }}
         >
@@ -87,7 +83,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
   );
 }
 
-const COLORS = ["#4f46e5", "#6ee7b7", "#fbbf24"];
+const COLORS = ["#00c4d4", "#00d4e8", "#fbbf24"];
 
 type topCountry = {
   country: string;
@@ -119,10 +115,11 @@ type OverviewPageProps = {
   topCountries: topCountry[];
   deviceBreakdown: DeviceBreakdown[];
   conversionFunnel: ConversionStep[];
+  currency?: string;
 };
 
 
-export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel }: OverviewPageProps) {
+export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel, currency = "INR" }: OverviewPageProps) {
   const [doneInsights, setDoneInsights] = useState<Set<number>>(new Set());
 
   function toggleInsight(id: number) {
@@ -149,7 +146,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         percentage: Math.round((metrics.organic_sessions / totalSessions) * 100),
       },
       {
-        source: "Paid",
+        source: "Monetary",
         sessions: metrics.paid_sessions,
         percentage: Math.round((metrics.paid_sessions / totalSessions) * 100),
       },
@@ -175,7 +172,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
   return (
     <div className="space-y-6">
       {/* Business Health Card */}
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border">
+      <div id="business-health-card" className="bg-card rounded-2xl p-6 shadow-card border border-border">
         <div className="flex flex-col lg:flex-row lg:items-center gap-6">
           {/* Growth Score */}
           <div className="flex items-center gap-6">
@@ -222,7 +219,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
               <p className="text-xs text-muted-foreground mb-1">Revenue</p>
               <p className="text-lg font-bold text-foreground font-mono">
                 {metrics?.revenue !== undefined
-                  ? `$${(metrics.revenue / 1000).toFixed(0)}K`
+                  ? formatCurrencyCompact(metrics.revenue, currency)
                   : "..."}
               </p>
             </div>
@@ -250,52 +247,62 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
 
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <MetricCard
-          label="Total Users"
-          value={metrics ? metrics.users.toLocaleString() : "..."}
-          change={metrics?.users_change}
-          sparkData={metricsSparklines.users}
-        />
+        <div id="metric-card-total-users">
+          <MetricCard
+            label="Total Users"
+            value={metrics ? metrics.users.toLocaleString() : "..."}
+            change={metrics?.users_change}
+            sparkData={metricsSparklines.users}
+          />
+        </div>
 
-        <MetricCard
-          label="Sessions"
-          value={metrics ? metrics.sessions.toLocaleString() : "..."}
-          change={metrics?.sessions_change}
-          sparkData={metricsSparklines.sessions}
-        />
+        <div id="metric-card-sessions">
+          <MetricCard
+            label="Sessions"
+            value={metrics ? metrics.sessions.toLocaleString() : "..."}
+            change={metrics?.sessions_change}
+            sparkData={metricsSparklines.sessions}
+          />
+        </div>
 
-        <MetricCard
-          label="Conversion Rate"
-          value={
-            metrics?.conversion_rate !== undefined
-              ? `${Number(metrics.conversion_rate).toFixed(2)}%`
-              : "..."
-          }
-          change={metrics?.conversion_change}
-          sparkData={metricsSparklines.conversion}
-        />
+        <div id="metric-card-conversion-rate">
+          <MetricCard
+            label="Conversion Rate"
+            value={
+              metrics?.conversion_rate !== undefined
+                ? `${Number(metrics.conversion_rate).toFixed(2)}%`
+                : "..."
+            }
+            change={metrics?.conversion_change}
+            sparkData={metricsSparklines.conversion}
+          />
+        </div>
 
         <MetricCard
           label="Revenue"
-          value={metrics ? `$${metrics.revenue.toLocaleString()}` : "..."}
+          value={metrics ? formatCurrencyCompact(metrics.revenue, currency) : "..."}
           change={metrics?.revenue_change}
           sparkData={metricsSparklines.revenue}
         />
 
-        <MetricCard
-          label="Engagement Rate"
-          value={metrics ? `${metrics.engagement_rate}%` : "..."}
-          change={metrics?.engagement_change}
-          sparkData={metricsSparklines.engagement}
-        />
+        <div id="metric-card-engagement-rate">
+          <MetricCard
+            label="Engagement Rate"
+            value={metrics ? `${metrics.engagement_rate}%` : "..."}
+            change={metrics?.engagement_change}
+            sparkData={metricsSparklines.engagement}
+          />
+        </div>
 
-        <MetricCard
-          label="Bounce Rate"
-          value={metrics ? `${metrics.bounce_rate}%` : "..."}
-          change={metrics?.bounce_change}
-          sparkData={metricsSparklines.bounce}
-          invertChange
-        />
+        <div id="metric-card-bounce-rate">
+          <MetricCard
+            label="Bounce Rate"
+            value={metrics ? `${metrics.bounce_rate}%` : "..."}
+            change={metrics?.bounce_change}
+            sparkData={metricsSparklines.bounce}
+            invertChange
+          />
+        </div>
       </div>
 
       {/* Traffic Analysis */}
@@ -303,7 +310,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide">Traffic Analysis</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Sessions Over Time */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-traffic-analysis-chart" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Sessions Over Time</h3>
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={sessionsTrafficAnalysis} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
@@ -330,7 +337,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Traffic Sources */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-traffic-sources-chart" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Traffic Sources</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={trafficSources} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
@@ -346,7 +353,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Device Breakdown */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-device-breakdown" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Device Breakdown</h3>
             <div className="flex items-center gap-4">
               <ResponsiveContainer width={160} height={160}>
@@ -358,7 +365,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                     innerRadius={50}
                     outerRadius={75}
                     paddingAngle={3}
-                    dataKey="value"
+                    dataKey="sessions"
                   >
                     {deviceBreakdown.map((entry, index) => (
                       <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
@@ -372,7 +379,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
                     <span className="text-sm text-muted-foreground flex-1">
-                      {item.name} ({item.sessions.toLocaleString()})
+                      {item.name} ({(item.sessions ?? 0).toLocaleString()})
                     </span>
                     <span className="text-sm font-semibold text-foreground">{item.value}%</span>
                   </div>
@@ -382,7 +389,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           </div>
 
           {/* Top Countries */}
-          <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+          <div id="overview-top-countries" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Top Countries</h3>
             <div className="space-y-3">
               {topCountries.map((country) => (
@@ -410,7 +417,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
       </div>
 
       {/* Conversion Funnel */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="overview-conversion-funnel" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <h2 className="text-sm font-semibold text-foreground mb-5 uppercase tracking-wide">Conversion Funnel</h2>
         <div className="space-y-2">
           {conversionFunnel.map((step, index) => {
@@ -444,7 +451,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                     <span className="text-xs text-muted-foreground mr-2">Dropoff</span>
                     <span
                       className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                      style={{ color: "#dc2626", backgroundColor: "#fee2e2" }}
+                      style={{ color: "#b00000", backgroundColor: "#fee2e2" }}
                     >
                       {step.dropoff}%
                     </span>
@@ -457,7 +464,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
       </div>
 
       {/* AI Insights */}
-      <div>
+      <div id="overview-ai-insights">
         <h2 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wide flex items-center gap-2">
           <Zap className="w-4 h-4 text-primary" />
           AI Insights
@@ -467,7 +474,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
             const isDone = doneInsights.has(insight.id);
             const priorityStyle =
               insight.priority === "High"
-                ? { color: "#dc2626", bg: "#fee2e2" }
+                ? { color: "#b00000", bg: "#fee2e2" }
                 : insight.priority === "Medium"
                   ? { color: "#d97706", bg: "#fef3c7" }
                   : { color: "#16a34a", bg: "#dcfce7" };

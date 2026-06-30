@@ -18,7 +18,7 @@ export default function ThemeSwitcher() {
               : "text-muted-foreground hover:text-foreground"
             }`}
         >
-          <span className="w-3 h-3 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
+          <span className="w-3 h-3 rounded-full bg-[oklch(0.58_0.155_200)] shrink-0" />
           Teal
         </button>
         <button

@@ -130,7 +130,7 @@ export default function SubscriptionPage() {
 
       {/* Current plan status */}
       {user?.subscription && (
-        <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+        <div id="subscription-current-plan" className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -218,7 +218,7 @@ export default function SubscriptionPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div id="subscription-plans-grid" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {plans.map((plan) => {
             const Icon = PLAN_ICONS[plan.name] || Sparkles;
             const isCurrent = plan.name === currentPlan;

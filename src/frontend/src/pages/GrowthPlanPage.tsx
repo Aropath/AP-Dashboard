@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchGrowthChecklist } from "../services/fetchMetrics";
+import { useState } from "react";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   BarChart,
   Bar,
@@ -82,7 +84,7 @@ useEffect(() => {
       {/* Main two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Left: 30-Day Checklist (~60%) */}
-        <div className="lg:col-span-3 bg-card rounded-2xl shadow-card border border-border overflow-hidden">
+        <div id="growth-action-checklist" className="lg:col-span-3 bg-card rounded-2xl shadow-card border border-border overflow-hidden">
           <div className="p-5 border-b border-border">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-foreground">30-Day Action Checklist</h3>
@@ -175,7 +177,7 @@ useEffect(() => {
       </div>
 
       {/* Revenue Forecast */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border">
+      <div id="growth-revenue-forecast" className="bg-card rounded-2xl p-5 shadow-card border border-border">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Revenue Forecast</h3>
           <span
@@ -203,14 +205,14 @@ useEffect(() => {
               tick={{ fontSize: 10, fill: "oklch(0.52 0.018 255)" }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`}
+              tickFormatter={(v: number) => formatCurrencyCompact(v, currency)}
               domain={[180000, 360000]}
             />
             <Tooltip
               contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid oklch(0.91 0.01 255)" }}
               formatter={(v) => {
                 const num = typeof v === "number" ? v : null;
-                return num ? [`$${num.toLocaleString()}`, ""] : ["—", ""];
+                return num ? [formatCurrencyCompact(num, currency), ""] : ["—", ""];
               }}
             />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
