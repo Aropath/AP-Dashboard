@@ -31,7 +31,7 @@ type Props = {
   currency?: string;
 };
 
-export default function GrowthPlanPage({currency = "USD",}: Props) {
+export default function GrowthPlanPage({currency = "INR",}: Props) {
   const [growthTasks, setGrowthTasks] = useState<any[]>([]);
 const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 
@@ -65,9 +65,6 @@ useEffect(() => {
   const completedCount = completedTasks.size;
   const totalTasks = growthTasks.length;
   const progressPct = Math.round((completedCount / totalTasks) * 100);
-
-  // default currency for formatting
-  const currency = "INR";
 
   // Forecast chart with both actual and projected
   const forecastChartData = revenueForecast.map((d) => ({
