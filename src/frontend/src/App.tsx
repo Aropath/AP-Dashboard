@@ -40,6 +40,7 @@ import {
   setActiveProject, getActiveProject,
 } from "./services/fetchMetrics";
 import { getCountryCode, getCountryNameFromTimezone } from "./services/countryFlags";
+import { getCurrencySymbol } from "./services/currencies";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
 
@@ -477,7 +478,7 @@ function SidebarUserPopover({
                     : "border-border bg-muted text-muted-foreground hover:text-foreground"
                   }`}
               >
-                <span className="w-3 h-3 rounded-full bg-[oklch(0.52_0.155_195)] shrink-0" />
+                <span className="w-3 h-3 rounded-full bg-[oklch(0.58_0.155_200)] shrink-0" />
                 Teal
               </button>
               <button
@@ -551,6 +552,7 @@ export default function App() {
   const [activePage, setActivePage] = useState<Page>("overview");
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currency, setCurrency] = useState<string>("INR");
 
   // Modals
   const [showJoinModal, setShowJoinModal] = useState(false);
@@ -1014,7 +1016,7 @@ export default function App() {
 
   function renderPage() {
     switch (activePage) {
-      case "overview": return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} />;
+      case "overview": return <OverviewPage period={dateRange} sessionsTrafficAnalysis={trafficAnalysis} topCountries={topCountries} deviceBreakdown={deviceBreakdown} conversionFunnel={conversionFunnel} currency={currency} />;
       case "analytics":
         return (
           <AnalyticsPage
@@ -1023,12 +1025,13 @@ export default function App() {
             landingPageData={landingPageData}
             revenueByProduct={revenueByProduct}
             retentionData={retentionData}
+            currency={currency}
           />
         );
       case "insights": return <InsightsPage />;
-      case "growth": return <GrowthPlanPage />;
+      case "growth": return <GrowthPlanPage {...({ currency } as any)} />;
       case "reports": return <ReportsPage />;
-      case "settings": return <SettingsPage />;
+      case "settings": return <SettingsPage currency={currency} onCurrencyChange={setCurrency} />;
       case "subscription": return <SubscriptionPage />;
     }
   }

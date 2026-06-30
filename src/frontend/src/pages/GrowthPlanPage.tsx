@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
+import { fetchGrowthChecklist } from "../services/fetchMetrics";
 import { useState } from "react";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   BarChart,
   Bar,
@@ -14,9 +17,10 @@ import {
 } from "recharts";
 import { CheckCircle2, Circle, TrendingUp } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { growthTasks, roiData, revenueForecast } from "../mockData";
+import { roiData, revenueForecast } from "../mockData";
 
 type Difficulty = "Easy" | "Medium" | "Hard";
+
 
 const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
   Easy: { color: "#16a34a", bg: "#dcfce7" },
@@ -25,9 +29,28 @@ const difficultyStyle: Record<Difficulty, { color: string; bg: string }> = {
 };
 
 export default function GrowthPlanPage() {
-  const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set([1, 3, 5, 6, 7]));
+  const [growthTasks, setGrowthTasks] = useState<any[]>([]);
+const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
 
-  function toggleTask(id: number) {
+useEffect(() => {
+    async function loadChecklist() {
+      const data = await fetchGrowthChecklist();
+      
+      setGrowthTasks(data.items);
+
+      setCompletedTasks(
+        new Set(
+          data.items
+            .filter((item: any) => item.completed)
+            .map((item: any) => item.id)
+        )
+      );
+    }
+
+    loadChecklist();
+  }, []);
+
+  function toggleTask(id: string) {
     setCompletedTasks((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -95,7 +118,7 @@ export default function GrowthPlanPage() {
                         isDone ? "line-through text-muted-foreground" : "text-foreground"
                       }`}
                     >
-                      {task.task}
+                      {task.title}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -109,7 +132,7 @@ export default function GrowthPlanPage() {
                       className="text-xs font-semibold px-2 py-0.5 rounded-md"
                       style={{ color: "#4f46e5", backgroundColor: "#eef2ff" }}
                     >
-                      {task.impact}
+                      {task.estimatedRevenueLift}
                     </span>
                   </div>
                 </div>
@@ -182,14 +205,14 @@ export default function GrowthPlanPage() {
               tick={{ fontSize: 10, fill: "oklch(0.52 0.018 255)" }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`}
+              tickFormatter={(v: number) => formatCurrencyCompact(v, currency)}
               domain={[180000, 360000]}
             />
             <Tooltip
               contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid oklch(0.91 0.01 255)" }}
               formatter={(v) => {
                 const num = typeof v === "number" ? v : null;
-                return num ? [`$${num.toLocaleString()}`, ""] : ["—", ""];
+                return num ? [formatCurrencyCompact(num, currency), ""] : ["—", ""];
               }}
             />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />

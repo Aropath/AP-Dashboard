@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { fetchLatestMetrics } from "../services/fetchMetrics";
 import { fetchDashboardData } from "../services/fetchMetrics";
+import { formatCurrencyCompact } from "../services/currencies";
 import {
   LineChart,
   Line,
@@ -94,7 +94,7 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
   );
 }
 
-const COLORS = ["#4f46e5", "#6ee7b7", "#fbbf24"];
+const COLORS = ["#00c4d4", "#00d4e8", "#fbbf24"];
 
 function formatPercentLabel(value: number | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "N/A%";
@@ -141,10 +141,11 @@ type OverviewPageProps = {
   topCountries: topCountry[];
   deviceBreakdown: DeviceBreakdown[];
   conversionFunnel: ConversionStep[];
+  currency?: string;
 };
 
 
-export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel }: OverviewPageProps) {
+export default function OverviewPage({ period, sessionsTrafficAnalysis, topCountries, deviceBreakdown, conversionFunnel, currency = "INR" }: OverviewPageProps) {
   const [doneInsights, setDoneInsights] = useState<Set<number>>(new Set());
 
   function toggleInsight(id: number) {
@@ -296,7 +297,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
               <p className="text-xs text-muted-foreground mb-1">Revenue</p>
               <p className="text-lg font-bold text-foreground font-mono">
                 {metrics?.revenue !== undefined
-                  ? `$${(metrics.revenue / 1000).toFixed(0)}K`
+                  ? formatCurrencyCompact(metrics.revenue, currency)
                   : "..."}
               </p>
             </div>
@@ -355,14 +356,12 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           />
         </div>
 
-        <div id="metric-card-revenue">
-          <MetricCard
-            label="Revenue"
-            value={metrics ? `$${metrics.revenue.toLocaleString()}` : "..."}
-            change={metrics?.revenue_change}
-            sparkData={metricsSparklines.revenue}
-          />
-        </div>
+        <MetricCard
+          label="Revenue"
+          value={metrics ? formatCurrencyCompact(metrics.revenue, currency) : "..."}
+          change={metrics?.revenue_change}
+          sparkData={metricsSparklines.revenue}
+        />
 
         <div id="metric-card-engagement-rate">
           <MetricCard
@@ -548,7 +547,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                     <span className="text-xs text-muted-foreground mr-2">Dropoff</span>
                     <span
                       className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                      style={{ color: "#dc2626", backgroundColor: "#fee2e2" }}
+                      style={{ color: "#b00000", backgroundColor: "#fee2e2" }}
                     >
                       {formatPercentLabel(Number(step.dropoff))}
                     </span>
@@ -571,7 +570,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
             const isDone = doneInsights.has(insight.id);
             const priorityStyle =
               insight.priority === "High"
-                ? { color: "#dc2626", bg: "#fee2e2" }
+                ? { color: "#b00000", bg: "#fee2e2" }
                 : insight.priority === "Medium"
                   ? { color: "#d97706", bg: "#fef3c7" }
                   : { color: "#16a34a", bg: "#dcfce7" };

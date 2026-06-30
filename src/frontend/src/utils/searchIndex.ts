@@ -317,7 +317,7 @@ export const searchIndex: SearchItem[] = [
     title: "Theme: Teal Branding",
     description: "Apply the new harmonized Teal color theme to all UI elements.",
     category: "Actions",
-    keywords: ["set teal color", "green blue brand accent", "change background highlight"],
+    keywords: ["set teal color", "neon sky-blue teal brand accent", "change background highlight"],
     actionKey: "setTealTheme",
   },
   {

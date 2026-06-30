@@ -119,6 +119,15 @@ export async function fetchCohortRetention(period: string) {
   );
 }
 
+//-- Growth------------
+
+export async function fetchGrowthChecklist(period: string = "30d") {
+  return authFetch(
+    withProject(`${API_BASE}/dashboard/growthChecklist?period=${period}`)
+  );
+}
+
+
 // ─── Subscription ─────────────────────────────────────────────────────────
 
 export async function fetchSubscription() {

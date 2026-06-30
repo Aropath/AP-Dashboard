@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatCurrencyCompact, formatCurrency } from "../services/currencies";
 import {
   LineChart,
   Line,
@@ -25,7 +26,7 @@ import { ArrowUpDown, ArrowUpRight } from "lucide-react";
 type SortKey = "sessions" | "conversions" | "convRate" | "revenue";
 type SortDir = "asc" | "desc";
 
-const PRODUCT_COLORS = ["#4f46e5", "#5b52e5", "#665de5", "#7168e5", "#7c73e5", "#8880e8"];
+const PRODUCT_COLORS = ["#00b8cc", "#00c4d4", "#00cfdc", "#00d9e4", "#00e4ec", "#00edf3"];
 
 type Props = {
   trafficAnalysis: any[];
@@ -33,6 +34,7 @@ type Props = {
   landingPageData: any[];
   revenueByProduct: any[];
   retentionData: any[];
+  currency?: string;
 };
 
 export default function AnalyticsPage({
@@ -41,6 +43,7 @@ export default function AnalyticsPage({
   landingPageData = [],
   revenueByProduct = [],
   retentionData = [],
+  currency = "USD",
 }: Props) {
   const [dateFilter, setDateFilter] = useState<"today" | "7d" | "30d" | "90d">("30d");
   const [sortKey, setSortKey] = useState<SortKey>("sessions");
@@ -111,7 +114,7 @@ export default function AnalyticsPage({
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
 
             <Line type="monotone" dataKey="sessions" stroke="#4f46e5" strokeWidth={2} dot={false} name="Sessions" />
-            <Line type="monotone" dataKey="pageviews" stroke="#6ee7b7" strokeWidth={2} dot={false} name="Pageviews" />
+            <Line type="monotone" dataKey="pageviews" stroke="#00d4e8" strokeWidth={2} dot={false} name="Pageviews" />
             <Line type="monotone" dataKey="uniqueVisitors" stroke="#fbbf24" strokeWidth={2} dot={false} name="Unique Visitors" />
           </LineChart>
         </ResponsiveContainer>
@@ -154,7 +157,7 @@ export default function AnalyticsPage({
                     </span>
                   </TableCellUi>
                   <TableCellUi className="text-sm font-mono font-semibold text-foreground">
-                    ${(row.revenue ?? 0).toLocaleString()}
+                    {formatCurrency(row.revenue ?? 0, currency, 0)}
                   </TableCellUi>
                 </TableRow>
               ))}
@@ -221,11 +224,11 @@ export default function AnalyticsPage({
               tick={{ fontSize: 10, fill: "oklch(0.52 0.018 255)" }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`}
+              tickFormatter={(v: number) => formatCurrencyCompact(v, currency)}
             />
             <Tooltip
               contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid oklch(0.91 0.01 255)" }}
-              formatter={(v: number) => [`$${Number(v).toLocaleString()}`, "Revenue"]}
+              formatter={(v: number) => [formatCurrency(Number(v), currency, 0), "Revenue"]}
             />
             <Bar dataKey="revenue" radius={[6, 6, 0, 0]} name="Revenue">
               {revenueByProduct.map((item, index) => (
