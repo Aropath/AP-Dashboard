@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   LayoutDashboard, BarChart2, Lightbulb, TrendingUp,
   FileText, Settings, Menu, X, ChevronDown, Bell,
@@ -39,7 +39,7 @@ import {
   fetchProductRevenue, fetchCohortRetention,
   setActiveProject, getActiveProject,
 } from "./services/fetchMetrics";
-import { countryFlags } from "./services/countryFlags";
+import { getCountryCode, getCountryNameFromTimezone } from "./services/countryFlags";
 import { getCurrencySymbol } from "./services/currencies";
 
 const AUTH_API = import.meta.env.VITE_AUTH_API_URL || "http://localhost:5000/api";
@@ -810,6 +810,24 @@ export default function App() {
   };
 
 
+  const getFallbackTopCountries = useCallback((selectedCountry: string) => {
+    const preferredCountry = selectedCountry || "India";
+    const countries = [preferredCountry, "United States", "United Kingdom", "Germany", "Australia"].filter(
+      (country, index, arr) => arr.indexOf(country) === index,
+    );
+
+    return countries.map((country) => ({
+      country,
+      users: 0,
+      flag: getCountryCode(country),
+    }));
+  }, []);
+
+  const getSelectedTimezoneCountry = useCallback(() => {
+    if (typeof window === "undefined") return "India";
+    return getCountryNameFromTimezone(localStorage.getItem("selected_timezone"));
+  }, []);
+
   // ── Analytics data state ──
   const [trafficAnalysis, setTrafficAnalysis] = useState<any[]>([]);
   const [topCountries, setTopCountries] = useState<any[]>([]);
@@ -893,8 +911,22 @@ export default function App() {
   async function loadCountries(period: DateRange) {
     try {
       const data = await fetchTopCountries(period);
-      if (!data) return;
-      setTopCountries(data.map((c: any) => ({ ...c, flag: countryFlags[c.country] || "🌍" })));
+      const normalizedData = Array.isArray(data)
+        ? data.map((c: any) => ({
+            ...c,
+            country: c.country || c.name || c.country_name || c.countryCode || c.code || "Unknown",
+            users: Number(c.users ?? c.sessions ?? c.count ?? 0),
+            flag: getCountryCode(c.country || c.name || c.country_name || c.countryCode || c.code),
+          }))
+        : [];
+
+      const hasRealData = normalizedData.some((country: any) => Number(country.users) > 0);
+      if (!hasRealData) {
+        setTopCountries(getFallbackTopCountries(getSelectedTimezoneCountry()));
+        return;
+      }
+
+      setTopCountries(normalizedData);
     } catch { }
   }
 
@@ -997,7 +1029,7 @@ export default function App() {
           />
         );
       case "insights": return <InsightsPage />;
-      case "growth": return <GrowthPlanPage currency={currency} />;
+      case "growth": return <GrowthPlanPage {...({ currency } as any)} />;
       case "reports": return <ReportsPage />;
       case "settings": return <SettingsPage currency={currency} onCurrencyChange={setCurrency} />;
       case "subscription": return <SubscriptionPage />;

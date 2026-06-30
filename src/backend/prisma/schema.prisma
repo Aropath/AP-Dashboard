@@ -26,6 +26,7 @@ model User {
   refreshTokens         RefreshToken[]
   subscription          Subscription?
   teamMembers           TeamMember[]
+  notifications         Notification[]
   ownedTeams            Team[]          @relation("TeamOwner")
 
   @@map("users")
@@ -238,12 +239,52 @@ model Project {
   apiKeys          ProjectApiKey?
   invites          ProjectInvite[]
   members          ProjectMember[]
+  notifications    Notification[]
   client           Client          @relation(fields: [clientid], references: [id], onDelete: Cascade, map: "projects_client_id_fkey")
   owner            User?           @relation(fields: [owner_profile_id], references: [id])
   
   @@index([clientid], map: "projects_client_id_idx")
   @@index([owner_profile_id])
   @@map("projects")
+}
+
+model Notification {
+  id                    String    @id @default(uuid())
+
+  project_id            String
+  user_id               String?
+
+  category              String
+  type                  String
+  title                 String
+  summary               String
+
+  priority              String    @default("medium")
+  source                String
+
+  target_page           String?
+  target_widget_id      String?
+
+  details               Json      @default("{}")
+  metadata              Json      @default("{}")
+
+  unread                Boolean   @default(true)
+  is_new                Boolean   @default(true)
+
+  read_at               DateTime?
+  dismissed_at          DateTime?
+  expires_at            DateTime?
+
+  created_at            DateTime  @default(now())
+
+  project               Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user                  User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([project_id, created_at])
+  @@index([project_id, unread])
+  @@index([user_id, unread])
+
+  @@map("notifications")
 }
 
 enum Role {

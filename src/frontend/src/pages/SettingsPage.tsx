@@ -166,7 +166,10 @@ export default function SettingsPage({ currency: currencyProp = "INR", onCurrenc
 
   // Preferences
   const [currency, setCurrency] = useState(currencyProp);
-  const [timezone, setTimezone] = useState("Asia/Kolkata (IST)");
+  const [timezone, setTimezone] = useState(() => {
+    if (typeof window === "undefined") return "Asia/Kolkata (IST)";
+    return localStorage.getItem("selected_timezone") || "Asia/Kolkata (IST)";
+  });
   const [saved, setSaved] = useState(false);
 
   // ── SDK Projects ─────────────────────────────────────────────────────────
@@ -200,6 +203,12 @@ export default function SettingsPage({ currency: currencyProp = "INR", onCurrenc
   }, []);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("selected_timezone", timezone);
+    }
+  }, [timezone]);
 
 
 

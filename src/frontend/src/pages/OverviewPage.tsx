@@ -17,12 +17,17 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { ArrowUpRight, ArrowDownRight, CheckCircle, Zap } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, CheckCircle, Zap, Globe2 } from "lucide-react";
+import ReactCountryFlag from "react-country-flag";
 import { Button } from "@/components/ui/button";
 import {
   sessionsLast30Days,
   metricsSparklines,
   revenueSparkline,
+  trafficSources as fallbackTrafficSources,
+  deviceBreakdown as fallbackDeviceBreakdown,
+  topCountries,
+  conversionFunnel,
   aiInsights,
 } from "../mockData";
 
@@ -50,29 +55,35 @@ function Sparkline({ data, color = "#4f46e5", positive = true }: { data: number[
 interface MetricCardProps {
   label: string;
   value: string;
-  change: number;
+  change?: number | null;
   sparkData: number[];
   invertChange?: boolean;
 }
 
 function MetricCard({ label, value, change, sparkData, invertChange = false }: MetricCardProps) {
-  const isPositive = invertChange ? change < 0 : change > 0;
+  const hasChange = Number.isFinite(change);
+  const changeValue = hasChange ? (change as number) : 0;
+  const isPositive = hasChange ? (invertChange ? changeValue < 0 : changeValue > 0) : false;
+  const badgeText = hasChange ? `${Math.abs(changeValue)}%` : "N/A%";
+
   return (
     <div className="bg-card rounded-2xl p-5 shadow-card border border-border hover:shadow-elevated transition-shadow duration-200">
       <div className="flex items-start justify-between mb-3">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
         <span
-          className={`flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${isPositive
-            ? "text-success-DEFAULT bg-success-light"
-            : "text-danger-DEFAULT bg-danger-light"
+          className={`flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-md ${hasChange
+            ? isPositive
+              ? "text-success-DEFAULT bg-success-light"
+              : "text-danger-DEFAULT bg-danger-light"
+            : "text-muted-foreground bg-muted"
             }`}
           style={{
-            color: isPositive ? "#16a34a" : "#b00000",
-            backgroundColor: isPositive ? "#dcfce7" : "#fee2e2",
+            color: hasChange ? (isPositive ? "#16a34a" : "#dc2626") : "#64748b",
+            backgroundColor: hasChange ? (isPositive ? "#dcfce7" : "#fee2e2") : "#f1f5f9",
           }}
         >
-          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-          {Math.abs(change)}%
+          {hasChange ? (isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />) : null}
+          {badgeText}
         </span>
       </div>
       <p className="text-2xl font-bold text-foreground font-mono tracking-tight mb-2">{value}</p>
@@ -85,10 +96,25 @@ function MetricCard({ label, value, change, sparkData, invertChange = false }: M
 
 const COLORS = ["#00c4d4", "#00d4e8", "#fbbf24"];
 
+function formatPercentLabel(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "N/A%";
+  return `${value}%`;
+}
+
+function formatChangeBadge(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "N/A%";
+  return `${Math.abs(value)}%`;
+}
+
+function isPositiveChange(value: number | null | undefined, invertChange = false): boolean {
+  if (typeof value !== "number" || !Number.isFinite(value)) return false;
+  return invertChange ? value < 0 : value > 0;
+}
+
 type topCountry = {
   country: string;
   users: number;
-  flag: string;
+  flag?: string | null;
 };
 
 type DeviceBreakdown = {
@@ -137,31 +163,83 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
   const [metrics, setMetrics] = useState<any>(null);
 
   const totalSessions = metrics?.sessions || 1;
+  const todayLabel = new Date().toISOString().split("T")[0];
+  const defaultSessionsSeries = [
+    { date: todayLabel, sessions: 0, users: 0, uniqueVisitors: 0 },
+  ];
 
-  const trafficSources = metrics
+  const hasSessionSeriesData = Array.isArray(sessionsTrafficAnalysis) && sessionsTrafficAnalysis.some((entry) => Number(entry.sessions) > 0);
+  const safeSessionsTrafficAnalysis = hasSessionSeriesData ? sessionsTrafficAnalysis : defaultSessionsSeries;
+
+  const trafficSourceValues = metrics
     ? [
-      {
-        source: "Organic",
-        sessions: metrics.organic_sessions,
-        percentage: Math.round((metrics.organic_sessions / totalSessions) * 100),
-      },
-      {
-        source: "Monetary",
-        sessions: metrics.paid_sessions,
-        percentage: Math.round((metrics.paid_sessions / totalSessions) * 100),
-      },
-      {
-        source: "Social",
-        sessions: metrics.social_sessions,
-        percentage: Math.round((metrics.social_sessions / totalSessions) * 100),
-      },
-      {
-        source: "Direct",
-        sessions: metrics.direct_sessions,
-        percentage: Math.round((metrics.direct_sessions / totalSessions) * 100),
-      },
-    ]
-    : [];
+        metrics.organic_sessions ?? 0,
+        metrics.paid_sessions ?? 0,
+        metrics.social_sessions ?? 0,
+        metrics.direct_sessions ?? 0,
+      ]
+    : [0, 0, 0, 0];
+
+  const hasTrafficSourceData = trafficSourceValues.some((value) => Number(value) > 0);
+  const trafficSources = hasTrafficSourceData
+    ? [
+        {
+          source: "Organic",
+          sessions: metrics.organic_sessions ?? 0,
+          percentage: Math.round(((metrics?.organic_sessions ?? 0) / totalSessions) * 100),
+        },
+        {
+          source: "Paid",
+          sessions: metrics.paid_sessions ?? 0,
+          percentage: Math.round(((metrics?.paid_sessions ?? 0) / totalSessions) * 100),
+        },
+        {
+          source: "Social",
+          sessions: metrics.social_sessions ?? 0,
+          percentage: Math.round(((metrics?.social_sessions ?? 0) / totalSessions) * 100),
+        },
+        {
+          source: "Direct",
+          sessions: metrics.direct_sessions ?? 0,
+          percentage: Math.round(((metrics?.direct_sessions ?? 0) / totalSessions) * 100),
+        },
+      ]
+    : fallbackTrafficSources.map((item) => ({ ...item, sessions: 0, percentage: 0 }));
+
+  const hasDeviceData = Array.isArray(deviceBreakdown) && deviceBreakdown.some((item) => Number(item.sessions) > 0 || Number(item.value) > 0);
+  const resolvedDeviceBreakdown = hasDeviceData
+    ? deviceBreakdown.map((item) => ({ ...item }))
+    : fallbackDeviceBreakdown.map((item) => ({ ...item, sessions: 0, value: 0 }));
+
+  const totalDeviceSessions = Math.max(
+    1,
+    resolvedDeviceBreakdown.reduce((sum, item) => sum + Number(item.sessions || 0), 0),
+  );
+
+  const deviceBreakdownChartData = !hasDeviceData
+    ? [{ name: "No Data", value: 100, sessions: 0, fill: "#64748b", noData: true }]
+    : resolvedDeviceBreakdown.map((item, index) => {
+        const sessions = Number(item.sessions || 0);
+        const providedValue = Number(item.value ?? 0);
+        const fallbackPercent = totalDeviceSessions > 0 ? (sessions / totalDeviceSessions) * 100 : 0;
+        const percent = Number.isFinite(providedValue) && providedValue > 0
+          ? providedValue
+          : Number.isFinite(fallbackPercent)
+            ? Math.round(fallbackPercent)
+            : 0;
+
+        return {
+          ...item,
+          value: percent,
+          sessions,
+          fill: COLORS[index % COLORS.length],
+        };
+      });
+
+  const deviceBreakdownListData = deviceBreakdownChartData.map((item) => ({
+    ...item,
+    displayValue: item.noData ? "No Data" : formatPercentLabel(item.value),
+  }));
 
   useEffect(() => {
     fetchDashboardData(period)
@@ -237,7 +315,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
               <p className="text-xs text-muted-foreground mb-1">Conv. Rate</p>
               <p className="text-lg font-bold text-foreground font-mono">
                 {metrics?.conversion_rate !== undefined
-                  ? `${Number(metrics.conversion_rate).toFixed(2)}%`
+                  ? formatPercentLabel(Number(metrics.conversion_rate))
                   : "..."}
               </p>
             </div>
@@ -288,7 +366,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <div id="metric-card-engagement-rate">
           <MetricCard
             label="Engagement Rate"
-            value={metrics ? `${metrics.engagement_rate}%` : "..."}
+            value={metrics ? formatPercentLabel(Number(metrics.engagement_rate)) : "..."}
             change={metrics?.engagement_change}
             sparkData={metricsSparklines.engagement}
           />
@@ -297,7 +375,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <div id="metric-card-bounce-rate">
           <MetricCard
             label="Bounce Rate"
-            value={metrics ? `${metrics.bounce_rate}%` : "..."}
+            value={metrics ? formatPercentLabel(Number(metrics.bounce_rate)) : "..."}
             change={metrics?.bounce_change}
             sparkData={metricsSparklines.bounce}
             invertChange
@@ -313,7 +391,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
           <div id="overview-traffic-analysis-chart" className="bg-card rounded-2xl p-5 shadow-card border border-border">
             <h3 className="text-sm font-semibold text-foreground mb-4">Sessions Over Time</h3>
             <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={sessionsTrafficAnalysis} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
+              <LineChart data={safeSessionsTrafficAnalysis} margin={{ top: 4, right: 4, bottom: 0, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.91 0.01 255)" />
                 <XAxis
                   dataKey="date"
@@ -359,29 +437,31 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
               <ResponsiveContainer width={160} height={160}>
                 <PieChart>
                   <Pie
-                    data={deviceBreakdown}
+                    data={deviceBreakdownChartData}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
                     outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="sessions"
+                    paddingAngle={0}
+                    dataKey="value"
+                    stroke="#ffffff"
+                    strokeWidth={2}
                   >
-                    {deviceBreakdown.map((entry, index) => (
-                      <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
+                    {deviceBreakdownChartData.map((entry, index) => (
+                      <Cell key={entry.name} fill={entry.noData ? "#64748b" : COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v) => [`${v}%`, ""]} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v) => [formatPercentLabel(Number(v)), ""]} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-3">
-                {deviceBreakdown.map((item, i) => (
+                {deviceBreakdownListData.map((item, i) => (
                   <div key={item.name} className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[i] }} />
                     <span className="text-sm text-muted-foreground flex-1">
-                      {item.name} ({(item.sessions ?? 0).toLocaleString()})
+                      {item.name} ({Number(item.sessions || 0).toLocaleString()})
                     </span>
-                    <span className="text-sm font-semibold text-foreground">{item.value}%</span>
+                    <span className="text-sm font-semibold text-foreground">{item.displayValue}</span>
                   </div>
                 ))}
               </div>
@@ -394,7 +474,18 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
             <div className="space-y-3">
               {topCountries.map((country) => (
                 <div key={country.country} className="flex items-center gap-3">
-                  <span className="text-base leading-none">{country.flag}</span>
+                  <span className="flex h-5 w-5 items-center justify-center leading-none">
+                    {country.flag ? (
+                      <ReactCountryFlag
+                        countryCode={country.flag}
+                        svg
+                        title={country.country}
+                        style={{ width: "1.25rem", height: "1.25rem", borderRadius: "2px" }}
+                      />
+                    ) : (
+                      <Globe2 className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-medium text-foreground">{country.country}</span>
@@ -421,9 +512,16 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
         <h2 className="text-sm font-semibold text-foreground mb-5 uppercase tracking-wide">Conversion Funnel</h2>
         <div className="space-y-2">
           {conversionFunnel.map((step, index) => {
-            const maxCount = conversionFunnel[0].count;
-            const widthPct = (step.count / maxCount) * 100;
-            console.log(`Step: ${step.step}, Count: ${step.count}, Dropoff: ${step.dropoff}%, Width%: ${widthPct}%`);
+            const countValue = Number(step.count);
+            const maxCount = Number(conversionFunnel.length > 0 ? conversionFunnel[0].count : 0);
+            const widthPct = maxCount > 0 && Number.isFinite(countValue) ? (countValue / maxCount) * 100 : 0;
+            const widthLabel = `${widthPct.toFixed(1)}%`;
+            const widthStyle = widthPct > 0 ? `${widthPct}%` : "100%";
+            const barColor = widthPct > 0
+              ? index === 0
+                ? "#4f46e5"
+                : `oklch(${0.511 + index * 0.07} ${0.22 - index * 0.03} 264)`
+              : "#64748b";
             return (
               <div key={step.step} className="flex items-center gap-3">
                 <div className="w-28 text-right shrink-0">
@@ -433,17 +531,15 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                   <div
                     className="h-9 rounded-lg flex items-center justify-between px-3 transition-all duration-500"
                     style={{
-                      width: `${widthPct}%`,
+                      width: widthStyle,
                       minWidth: "20%",
-                      backgroundColor: index === 0 ? "#4f46e5" : `oklch(${0.511 + index * 0.07} ${0.22 - index * 0.03} 264)`,
+                      backgroundColor: barColor,
                     }}
                   >
                     <span className="text-xs font-bold text-white font-mono">
-                      {step.count.toLocaleString()}
+                      {Number.isFinite(countValue) ? countValue.toLocaleString() : "0"}
                     </span>
-                    {widthPct !== null && (
-                      <span className="text-xs text-white/75">{widthPct.toFixed(1)}%</span>
-                    )}
+                    <span className="text-xs text-white/75">{widthLabel}</span>
                   </div>
                 </div>
                 {step.dropoff !== null && (
@@ -453,7 +549,7 @@ export default function OverviewPage({ period, sessionsTrafficAnalysis, topCount
                       className="text-xs font-semibold px-1.5 py-0.5 rounded"
                       style={{ color: "#b00000", backgroundColor: "#fee2e2" }}
                     >
-                      {step.dropoff}%
+                      {formatPercentLabel(Number(step.dropoff))}
                     </span>
                   </div>
                 )}
